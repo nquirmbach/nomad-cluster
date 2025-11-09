@@ -58,6 +58,12 @@ variable "client_vm_size" {
 
 # SSH-Schlüssel werden automatisch generiert und in Key Vault gespeichert
 
+variable "enable_github_actions_rbac" {
+  description = "Aktiviert RBAC-Zuweisungen für GitHub Actions Managed Identity (muss vorher über setup-federated-identity.sh erstellt werden)"
+  type        = bool
+  default     = false
+}
+
 variable "allowed_ssh_ips" {
   description = "Liste der erlaubten IPs für SSH-Zugriff"
   type        = list(string)

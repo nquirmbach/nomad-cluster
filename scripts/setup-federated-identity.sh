@@ -72,7 +72,8 @@ esac
 # Konfiguration mit String-Interpolation
 PREFIX="nmdclstr-${ENV}"
 RESOURCE_GROUP="rg-nomad-cluster-${ENV}"
-ENVIRONMENT="${ENV}"
+ENVIRONMENT="azure-${ENV}"
+TERRAFORM_WORKSPACE="${ENV}"
 
 # ACR-Name generieren (ohne Bindestriche)
 ACR_NAME="${PREFIX//-/}acr"  # Name der Azure Container Registry
@@ -117,21 +118,8 @@ else
     echo -e "${GREEN}Resource Group existiert bereits.${NC}"
 fi
 
-# Azure Container Registry erstellen, falls sie nicht existiert
-echo -e "${YELLOW}Prüfe Azure Container Registry...${NC}"
-ACR_EXISTS=$(az acr check-name --name "$ACR_NAME" --query nameAvailable -o tsv)
-if [ "$ACR_EXISTS" = "true" ]; then
-    echo -e "${YELLOW}Azure Container Registry existiert nicht. Erstelle...${NC}"
-    az acr create --resource-group "$RESOURCE_GROUP" --name "$ACR_NAME" --sku Standard --admin-enabled false
-    echo -e "${GREEN}Azure Container Registry erstellt.${NC}"
-else
-    echo -e "${GREEN}Azure Container Registry existiert bereits oder Name ist nicht verfügbar.${NC}"
-    # Prüfen, ob die ACR in der angegebenen Resource Group existiert
-    ACR_RG=$(az acr show --name "$ACR_NAME" --query resourceGroup -o tsv 2>/dev/null || echo "")
-    if [ "$ACR_RG" != "$RESOURCE_GROUP" ]; then
-        echo -e "${RED}WARNUNG: ACR existiert, aber in einer anderen Resource Group: $ACR_RG${NC}"
-    fi
-fi
+# Hinweis: Azure Container Registry wird über Terraform erstellt
+echo -e "${GREEN}Hinweis: Azure Container Registry wird über Terraform erstellt.${NC}"
 
 # User-Assigned Managed Identity erstellen
 echo -e "${YELLOW}Erstelle User-Assigned Managed Identity...${NC}"
@@ -168,14 +156,18 @@ else
     echo -e "${GREEN}Federated Identity Credential existiert bereits.${NC}"
 fi
 
-# RBAC-Berechtigungen für ACR zuweisen
-echo -e "${YELLOW}Weise RBAC-Berechtigungen für ACR zu...${NC}"
-ACR_ID=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query id -o tsv)
-az role assignment create \
-    --assignee "$PRINCIPAL_ID" \
-    --role "AcrPush" \
-    --scope "$ACR_ID"
-echo -e "${GREEN}RBAC-Berechtigungen für ACR zugewiesen.${NC}"
+# RBAC-Berechtigungen für ACR zuweisen (falls ACR bereits existiert)
+echo -e "${YELLOW}Prüfe RBAC-Berechtigungen für ACR...${NC}"
+if az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+    ACR_ID=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query id -o tsv)
+    az role assignment create \
+        --assignee "$PRINCIPAL_ID" \
+        --role "AcrPush" \
+        --scope "$ACR_ID" 2>/dev/null || echo -e "${YELLOW}RBAC-Zuweisung existiert bereits oder konnte nicht erstellt werden.${NC}"
+    echo -e "${GREEN}RBAC-Berechtigungen für ACR zugewiesen.${NC}"
+else
+    echo -e "${YELLOW}ACR existiert noch nicht. RBAC-Berechtigungen werden automatisch über Terraform zugewiesen.${NC}"
+fi
 
 # RBAC-Berechtigungen für Resource Group zuweisen (für VM-Zugriff)
 echo -e "${YELLOW}Weise RBAC-Berechtigungen für Resource Group zu...${NC}"
@@ -207,7 +199,21 @@ echo -e "${GREEN}Aktiviere 'Allow GitHub Actions to request the OpenID Connect I
 echo -e "\n${YELLOW}Verwendete Konfiguration:${NC}"
 echo -e "${YELLOW}Environment:${NC} $ENV"
 echo -e "${YELLOW}GitHub Environment:${NC} $ENVIRONMENT"
+echo -e "${YELLOW}Terraform Workspace:${NC} $TERRAFORM_WORKSPACE"
 echo -e "${YELLOW}Resource Group:${NC} $RESOURCE_GROUP"
 echo -e "${YELLOW}Location:${NC} $LOCATION"
 echo -e "${YELLOW}Prefix:${NC} $PREFIX"
 echo -e "${YELLOW}ACR Name:${NC} $ACR_NAME"
+
+echo -e "\n${GREEN}Nächste Schritte:${NC}"
+echo -e "1. Erstelle Terraform Backend Storage Account (falls noch nicht vorhanden):"
+echo -e "   ${YELLOW}az group create --name tf-state-rg --location $LOCATION${NC}"
+echo -e "   ${YELLOW}az storage account create --name tfstatenomadcluster --resource-group tf-state-rg --location $LOCATION --sku Standard_LRS${NC}"
+echo -e "   ${YELLOW}az storage container create --name tfstate --account-name tfstatenomadcluster${NC}"
+echo -e ""
+echo -e "2. Initialisiere Terraform mit Workspace:"
+echo -e "   ${YELLOW}cd terraform${NC}"
+echo -e "   ${YELLOW}terraform init${NC}"
+echo -e "   ${YELLOW}terraform workspace new $TERRAFORM_WORKSPACE || terraform workspace select $TERRAFORM_WORKSPACE${NC}"
+echo -e "   ${YELLOW}terraform plan${NC}"
+echo -e "   ${YELLOW}terraform apply${NC}"

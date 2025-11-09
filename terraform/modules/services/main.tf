@@ -44,9 +44,24 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = "Standard"
-  admin_enabled       = true
+  admin_enabled       = false
   tags                = var.tags
 }
 
 # Aktuelle Client-Konfiguration für Key Vault Access Policy
 data "azurerm_client_config" "current" {}
+
+# GitHub Actions Managed Identity (falls vorhanden)
+data "azurerm_user_assigned_identity" "github_actions" {
+  count               = var.enable_github_actions_rbac ? 1 : 0
+  name                = "${var.prefix}-github-actions-identity"
+  resource_group_name = var.resource_group_name
+}
+
+# RBAC für GitHub Actions Managed Identity auf ACR
+resource "azurerm_role_assignment" "github_actions_acr_push" {
+  count                = var.enable_github_actions_rbac ? 1 : 0
+  scope                = azurerm_container_registry.acr.id
+  role_definition_name = "AcrPush"
+  principal_id         = data.azurerm_user_assigned_identity.github_actions[0].principal_id
+}

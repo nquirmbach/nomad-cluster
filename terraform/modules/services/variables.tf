@@ -17,3 +17,9 @@ variable "tags" {
   description = "Tags für alle Ressourcen"
   type        = map(string)
 }
+
+variable "enable_github_actions_rbac" {
+  description = "Aktiviert RBAC-Zuweisungen für GitHub Actions Managed Identity"
+  type        = bool
+  default     = false
+}

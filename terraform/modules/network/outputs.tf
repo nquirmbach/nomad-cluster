@@ -8,7 +8,7 @@ output "vnet_name" {
   value       = azurerm_virtual_network.nomad.name
 }
 
-output "subnet_id" {
+output "cluster_subnet_id" {
   description = "ID des Cluster Subnets"
   value       = azurerm_subnet.cluster.id
 }

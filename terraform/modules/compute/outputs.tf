@@ -1,24 +1,24 @@
-output "server_ids" {
+output "nomad_server_ids" {
   description = "IDs der Nomad Server VMs"
   value       = azurerm_linux_virtual_machine.nomad_server[*].id
 }
 
-output "server_names" {
+output "nomad_server_names" {
   description = "Namen der Nomad Server VMs"
   value       = azurerm_linux_virtual_machine.nomad_server[*].name
 }
 
-output "server_private_ips" {
+output "nomad_server_private_ips" {
   description = "Private IPs der Nomad Server"
   value       = [for nic in azurerm_network_interface.nomad_server : nic.private_ip_address]
 }
 
-output "server_public_ips" {
+output "nomad_server_public_ips" {
   description = "Public IPs der Nomad Server"
   value       = azurerm_public_ip.nomad_server[*].ip_address
 }
 
-output "client_vmss_id" {
+output "nomad_client_vmss_id" {
   description = "ID der Nomad Client VMSS"
   value       = azurerm_linux_virtual_machine_scale_set.nomad_client.id
 }
