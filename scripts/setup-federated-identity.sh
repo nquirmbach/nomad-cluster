@@ -167,12 +167,21 @@ fi
 # RBAC-Berechtigungen für Resource Group zuweisen
 echo -e "${YELLOW}Weise RBAC-Berechtigungen für Resource Group zu...${NC}"
 RG_ID=$(az group show --name "$RESOURCE_GROUP" --query id -o tsv)
+
+# Contributor für Ressourcen-Erstellung
 az role assignment create \
     --assignee "$PRINCIPAL_ID" \
     --role "Contributor" \
-    --scope "$RG_ID" 2>/dev/null || echo -e "${YELLOW}RBAC-Zuweisung existiert bereits.${NC}"
+    --scope "$RG_ID" 2>/dev/null || echo -e "${YELLOW}Contributor-Zuweisung existiert bereits.${NC}"
+
+# User Access Administrator für RBAC-Zuweisungen (z.B. ACR)
+az role assignment create \
+    --assignee "$PRINCIPAL_ID" \
+    --role "User Access Administrator" \
+    --scope "$RG_ID" 2>/dev/null || echo -e "${YELLOW}User Access Administrator-Zuweisung existiert bereits.${NC}"
+
 echo -e "${GREEN}RBAC-Berechtigungen für Resource Group zugewiesen.${NC}"
-echo -e "${GREEN}Die Managed Identity hat jetzt Contributor-Rechte auf die Resource Group.${NC}"
+echo -e "${GREEN}Die Managed Identity hat jetzt Contributor und User Access Administrator Rechte auf die Resource Group.${NC}"
 
 # RBAC-Berechtigungen für Terraform Backend Storage Account zuweisen
 echo -e "${YELLOW}Prüfe RBAC-Berechtigungen für Terraform Backend Storage Account...${NC}"

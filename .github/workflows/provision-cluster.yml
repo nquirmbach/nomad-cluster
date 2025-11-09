@@ -22,7 +22,8 @@ on:
           - destroy
   push:
     branches: [main]
-    paths: ["terraform/**", "ansible/**"]
+    paths:
+      ["terraform/**", "ansible/**", ".github/workflows/provision-cluster.yml"]
 
 env:
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -97,10 +98,8 @@ jobs:
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           VMSS_NAME=$(terraform output -json nomad_client_vmss_id | jq -r 'split("/") | .[-1]')
 
-          # Get VMSS instance IPs
           INSTANCE_IPS=$(az vmss list-instance-public-ips -g $RESOURCE_GROUP -n $VMSS_NAME --query "[].ipAddress" -o tsv)
 
-          # Add instances to inventory
           INSTANCE_NUM=0
           for IP in $INSTANCE_IPS; do
             echo "nomad-client-${INSTANCE_NUM} ansible_host=${IP}" >> ../ansible/inventory.ini
@@ -110,40 +109,102 @@ jobs:
           echo "Generated inventory:"
           cat ../ansible/inventory.ini
 
-      - name: Setup Ansible
+      - name: Extract SSH Key
         if: github.event.inputs.action != 'destroy'
+        working-directory: ./terraform
+        run: |
+          terraform output -raw ssh_private_key > ssh_key.pem
+          chmod 600 ssh_key.pem
+
+      - name: Upload Artifacts
+        if: github.event.inputs.action != 'destroy'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-config
+          path: |
+            ansible/inventory.ini
+            terraform/ssh_key.pem
+          retention-days: 1
+
+      - name: Output Provision Summary
+        if: github.event.inputs.action != 'destroy'
+        working-directory: ./terraform
+        run: |
+          SERVER_IP=$(terraform output -json nomad_server_public_ips | jq -r '.[0]')
+          echo "## Infrastructure Provisioned!" >> $GITHUB_STEP_SUMMARY
+          echo "- Server IP: $SERVER_IP" >> $GITHUB_STEP_SUMMARY
+          echo "- Waiting for configuration job..." >> $GITHUB_STEP_SUMMARY
+
+  configure:
+    name: Configure Cluster
+    runs-on: ubuntu-latest
+    needs: provision
+    if: github.event.inputs.action != 'destroy'
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cluster-config
+
+      - name: Setup Ansible
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install Ansible
-        if: github.event.inputs.action != 'destroy'
         run: pip install ansible==2.15.0
 
       - name: Setup SSH
-        if: github.event.inputs.action != 'destroy'
-        working-directory: ./terraform
         run: |
           mkdir -p ~/.ssh
-          terraform output -raw ssh_private_key > ~/.ssh/id_rsa
+          mv ssh_key.pem ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $(terraform output -json nomad_server_public_ips | jq -r '.[]') >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          for IP in $(grep -oP 'ansible_host=\K[^ ]+' inventory.ini); do
+            ssh-keyscan -H $IP >> ~/.ssh/known_hosts 2>/dev/null || true
+          done
 
       - name: Wait for VMs
-        if: github.event.inputs.action != 'destroy'
         run: sleep 60
 
       - name: Run Ansible Playbooks
-        if: github.event.inputs.action != 'destroy'
         working-directory: ./ansible
         run: |
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook -i inventory.ini playbooks/site.yml
+          ansible-playbook -i ../inventory.ini playbooks/site.yml
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Setup Terraform for Outputs
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
 
       - name: Output Cluster Info
-        if: github.event.inputs.action != 'destroy'
         working-directory: ./terraform
         run: |
+          ENV=${{ github.event.inputs.environment || 'dev' }}
+          export TF_WORKSPACE=$ENV
+
           SERVER_IP=$(terraform output -json nomad_server_public_ips | jq -r '.[0]')
           echo "## Nomad Cluster Ready!" >> $GITHUB_STEP_SUMMARY
           echo "- Nomad UI: http://$SERVER_IP:4646/ui" >> $GITHUB_STEP_SUMMARY
