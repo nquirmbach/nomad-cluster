@@ -1,6 +1,6 @@
 name: Provision Nomad Cluster
 
-run-name: Provision ${{ github.event.inputs.environment || 'dev' }} - ${{ github.event.inputs.action || 'apply' }}
+run-name: Provision ${{ github.event.inputs.environment || 'dev' }} - ${{ github.event.inputs.action || 'apply' }} | ${{ github.event.head_commit.message || github.event.commits[0].message }}
 
 on:
   workflow_dispatch:
@@ -77,7 +77,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan/Apply
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           terraform plan -var-file="environments/$TF_WORKSPACE/terraform.tfvars" -out=tfplan
@@ -98,13 +98,13 @@ jobs:
           terraform destroy -var-file="environments/$TF_WORKSPACE/terraform.tfvars" -auto-approve
 
       - name: Generate Inventory
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           terraform output -raw ansible_inventory > ../ansible/inventory.ini
 
       - name: Add VMSS Instances to Inventory
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
@@ -122,14 +122,14 @@ jobs:
           cat ../ansible/inventory.ini
 
       - name: Extract SSH Key
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           terraform output -raw ssh_private_key > ssh_key.pem
           chmod 600 ssh_key.pem
 
       - name: Upload Artifacts
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         uses: actions/upload-artifact@v4
         with:
           name: cluster-config
@@ -139,7 +139,7 @@ jobs:
           retention-days: 1
 
       - name: Output Provision Summary
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           LB_IP=$(terraform output -raw load_balancer_public_ip)
@@ -152,7 +152,7 @@ jobs:
     name: Configure Cluster
     runs-on: ubuntu-latest
     needs: provision
-    if: github.event.inputs.action == 'apply'
+    if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
     environment: ${{ github.event.inputs.environment || 'dev' }}
 
     permissions:
