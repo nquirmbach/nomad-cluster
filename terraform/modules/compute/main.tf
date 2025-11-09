@@ -48,18 +48,91 @@ resource "azurerm_network_interface" "nomad_server" {
     name                          = "internal"
     subnet_id                     = var.subnet_id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.nomad_server[count.index].id
   }
 }
 
-# Nomad Server Public IPs
-resource "azurerm_public_ip" "nomad_server" {
-  count               = var.server_count
-  name                = "${var.prefix}-server-ip-${count.index + 1}"
+# Load Balancer Public IP
+resource "azurerm_public_ip" "lb" {
+  name                = "${var.prefix}-lb-ip"
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
+  sku                 = "Standard"
   tags                = var.tags
+}
+
+# Load Balancer
+resource "azurerm_lb" "nomad" {
+  name                = "${var.prefix}-lb"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard"
+  tags                = var.tags
+
+  frontend_ip_configuration {
+    name                 = "PublicIPAddress"
+    public_ip_address_id = azurerm_public_ip.lb.id
+  }
+}
+
+# Backend Address Pool
+resource "azurerm_lb_backend_address_pool" "nomad_servers" {
+  name            = "${var.prefix}-backend-pool"
+  loadbalancer_id = azurerm_lb.nomad.id
+}
+
+# Health Probe für Nomad API
+resource "azurerm_lb_probe" "nomad_api" {
+  name            = "nomad-api-probe"
+  loadbalancer_id = azurerm_lb.nomad.id
+  protocol        = "Http"
+  port            = 4646
+  request_path    = "/v1/status/leader"
+}
+
+# Load Balancer Rule für Nomad UI/API
+resource "azurerm_lb_rule" "nomad_ui" {
+  name                           = "nomad-ui"
+  loadbalancer_id                = azurerm_lb.nomad.id
+  protocol                       = "Tcp"
+  frontend_port                  = 4646
+  backend_port                   = 4646
+  frontend_ip_configuration_name = "PublicIPAddress"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.nomad_servers.id]
+  probe_id                       = azurerm_lb_probe.nomad_api.id
+}
+
+# Health Probe für Consul
+resource "azurerm_lb_probe" "consul" {
+  name            = "consul-probe"
+  loadbalancer_id = azurerm_lb.nomad.id
+  protocol        = "Http"
+  port            = 8500
+  request_path    = "/v1/status/leader"
+}
+
+# Load Balancer Rule für Consul UI
+resource "azurerm_lb_rule" "consul_ui" {
+  name                           = "consul-ui"
+  loadbalancer_id                = azurerm_lb.nomad.id
+  protocol                       = "Tcp"
+  frontend_port                  = 8500
+  backend_port                   = 8500
+  frontend_ip_configuration_name = "PublicIPAddress"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.nomad_servers.id]
+  probe_id                       = azurerm_lb_probe.consul.id
+}
+
+# Inbound NAT Rules für SSH (ein Port pro Server)
+resource "azurerm_lb_nat_rule" "ssh" {
+  count                          = var.server_count
+  name                           = "ssh-server-${count.index + 1}"
+  resource_group_name            = var.resource_group_name
+  loadbalancer_id                = azurerm_lb.nomad.id
+  protocol                       = "Tcp"
+  frontend_port                  = 50001 + count.index
+  backend_port                   = 22
+  frontend_ip_configuration_name = "PublicIPAddress"
 }
 
 # NSG Association für Server NICs
@@ -67,6 +140,22 @@ resource "azurerm_network_interface_security_group_association" "nomad_server" {
   count                     = var.server_count
   network_interface_id      = azurerm_network_interface.nomad_server[count.index].id
   network_security_group_id = var.server_nsg_id
+}
+
+# Backend Pool Association für Server NICs
+resource "azurerm_network_interface_backend_address_pool_association" "nomad_server" {
+  count                   = var.server_count
+  network_interface_id    = azurerm_network_interface.nomad_server[count.index].id
+  ip_configuration_name   = "internal"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.nomad_servers.id
+}
+
+# NAT Rule Association für SSH
+resource "azurerm_network_interface_nat_rule_association" "ssh" {
+  count                 = var.server_count
+  network_interface_id  = azurerm_network_interface.nomad_server[count.index].id
+  ip_configuration_name = "internal"
+  nat_rule_id           = azurerm_lb_nat_rule.ssh[count.index].id
 }
 
 # Nomad Client VMSS

@@ -10,9 +10,20 @@ output "cluster_subnet_id" {
 }
 
 # Compute Outputs
-output "nomad_server_public_ips" {
-  description = "Öffentliche IP-Adressen der Nomad Server"
-  value       = module.compute.nomad_server_public_ips
+output "load_balancer_public_ip" {
+  description = "Öffentliche IP-Adresse des Load Balancers"
+  value       = module.compute.load_balancer_public_ip
+}
+
+output "ssh_connection_info" {
+  description = "SSH Verbindungsinformationen für Server"
+  value = {
+    for i in range(length(module.compute.ssh_ports)) :
+    "server-${i + 1}" => {
+      host = module.compute.load_balancer_public_ip
+      port = module.compute.ssh_ports[i]
+    }
+  }
 }
 
 output "nomad_server_private_ips" {

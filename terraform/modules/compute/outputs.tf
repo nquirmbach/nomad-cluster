@@ -13,9 +13,14 @@ output "nomad_server_private_ips" {
   value       = [for nic in azurerm_network_interface.nomad_server : nic.private_ip_address]
 }
 
-output "nomad_server_public_ips" {
-  description = "Public IPs der Nomad Server"
-  value       = azurerm_public_ip.nomad_server[*].ip_address
+output "load_balancer_public_ip" {
+  description = "Public IP des Load Balancers"
+  value       = azurerm_public_ip.lb.ip_address
+}
+
+output "ssh_ports" {
+  description = "SSH Ports für jeden Server (via Load Balancer NAT)"
+  value       = [for i in range(var.server_count) : 50001 + i]
 }
 
 output "nomad_client_vmss_id" {
@@ -33,7 +38,7 @@ locals {
   inventory = <<-EOT
 [nomad_servers]
 %{for i in range(length(azurerm_linux_virtual_machine.nomad_server))~}
-${azurerm_linux_virtual_machine.nomad_server[i].name} ansible_host=${azurerm_public_ip.nomad_server[i].ip_address}
+${azurerm_linux_virtual_machine.nomad_server[i].name} ansible_host=${azurerm_public_ip.lb.ip_address} ansible_port=${50001 + i}
 %{endfor~}
 
 [nomad_clients]

@@ -139,9 +139,10 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ./terraform
         run: |
-          SERVER_IP=$(terraform output -json nomad_server_public_ips | jq -r '.[0]')
+          LB_IP=$(terraform output -raw load_balancer_public_ip)
           echo "## Infrastructure Provisioned!" >> $GITHUB_STEP_SUMMARY
-          echo "- Server IP: $SERVER_IP" >> $GITHUB_STEP_SUMMARY
+          echo "- Load Balancer IP: $LB_IP" >> $GITHUB_STEP_SUMMARY
+          echo "- SSH Ports: 50001-50003 (NAT to servers)" >> $GITHUB_STEP_SUMMARY
           echo "- Waiting for configuration job..." >> $GITHUB_STEP_SUMMARY
 
   configure:
@@ -214,7 +215,12 @@ jobs:
           ENV=${{ github.event.inputs.environment || 'dev' }}
           export TF_WORKSPACE=$ENV
 
-          SERVER_IP=$(terraform output -json nomad_server_public_ips | jq -r '.[0]')
+          LB_IP=$(terraform output -raw load_balancer_public_ip)
           echo "## Nomad Cluster Ready!" >> $GITHUB_STEP_SUMMARY
-          echo "- Nomad UI: http://$SERVER_IP:4646/ui" >> $GITHUB_STEP_SUMMARY
-          echo "- Consul UI: http://$SERVER_IP:8500/ui" >> $GITHUB_STEP_SUMMARY
+          echo "- Nomad UI: http://$LB_IP:4646/ui" >> $GITHUB_STEP_SUMMARY
+          echo "- Consul UI: http://$LB_IP:8500/ui" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SSH Access" >> $GITHUB_STEP_SUMMARY
+          echo "- Server 1: \`ssh -p 50001 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Server 2: \`ssh -p 50002 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Server 3: \`ssh -p 50003 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
