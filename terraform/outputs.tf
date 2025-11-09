@@ -70,6 +70,12 @@ output "ssh_public_key" {
   value       = module.ssh.public_key
 }
 
+output "ssh_private_key" {
+  description = "Der generierte private SSH-Schlüssel"
+  value       = module.ssh.private_key
+  sensitive   = true
+}
+
 output "ssh_private_key_secret_name" {
   description = "Name des Key Vault Secrets für den privaten SSH-Schlüssel"
   value       = module.ssh.ssh_private_key_secret_name

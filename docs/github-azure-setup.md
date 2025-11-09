@@ -109,7 +109,6 @@ Nach der Einrichtung der Azure-Ressourcen müssen folgende Schritte im GitHub Re
    | `AZURE_SUBSCRIPTION_ID` | Subscription ID | Ausgabe von `az account show --query id -o tsv` |
    | `NOMAD_RESOURCE_GROUP` | `rg-nomad-cluster-dev` | Name der Resource Group |
    | `ACR_NAME` | `nomadacr` | Name der Azure Container Registry |
-   | `NOMAD_SERVER_NAME` | `nomad-server-1` | Name des ersten Nomad Servers (nach Terraform-Deployment) |
 
 ### 2.3 Workflow-Berechtigungen aktivieren
 

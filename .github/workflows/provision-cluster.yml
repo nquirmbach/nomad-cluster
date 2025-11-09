@@ -47,19 +47,40 @@ jobs:
         if: github.event.inputs.action != 'destroy'
         working-directory: ./terraform
         run: |
-          terraform plan -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
+          terraform plan -out=tfplan
           terraform apply -auto-approve tfplan
           
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         working-directory: ./terraform
         run: |
-          terraform destroy -auto-approve -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
+          terraform destroy -auto-approve
           
       - name: Generate Inventory
         if: github.event.inputs.action != 'destroy'
         working-directory: ./terraform
-        run: terraform output -raw ansible_inventory > ../ansible/inventory.ini
+        run: |
+          terraform output -raw ansible_inventory > ../ansible/inventory.ini
+          
+      - name: Add VMSS Instances to Inventory
+        if: github.event.inputs.action != 'destroy'
+        working-directory: ./terraform
+        run: |
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+          VMSS_NAME=$(terraform output -json nomad_client_vmss_id | jq -r 'split("/") | .[-1]')
+          
+          # Get VMSS instance IPs
+          INSTANCE_IPS=$(az vmss list-instance-public-ips -g $RESOURCE_GROUP -n $VMSS_NAME --query "[].ipAddress" -o tsv)
+          
+          # Add instances to inventory
+          INSTANCE_NUM=0
+          for IP in $INSTANCE_IPS; do
+            echo "nomad-client-${INSTANCE_NUM} ansible_host=${IP}" >> ../ansible/inventory.ini
+            INSTANCE_NUM=$((INSTANCE_NUM + 1))
+          done
+          
+          echo "Generated inventory:"
+          cat ../ansible/inventory.ini
           
       - name: Setup Ansible
         if: github.event.inputs.action != 'destroy'
@@ -73,10 +94,12 @@ jobs:
         
       - name: Setup SSH
         if: github.event.inputs.action != 'destroy'
+        working-directory: ./terraform
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          terraform output -raw ssh_private_key > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $(terraform output -json nomad_server_public_ips | jq -r '.[]') >> ~/.ssh/known_hosts 2>/dev/null || true
           
       - name: Wait for VMs
         if: github.event.inputs.action != 'destroy'
@@ -93,7 +116,7 @@ jobs:
         if: github.event.inputs.action != 'destroy'
         working-directory: ./terraform
         run: |
-          SERVER_IP=$(terraform output -raw nomad_server_public_ips | jq -r '.[0]')
+          SERVER_IP=$(terraform output -json nomad_server_public_ips | jq -r '.[0]')
           echo "## Nomad Cluster Ready!" >> $GITHUB_STEP_SUMMARY
           echo "- Nomad UI: http://$SERVER_IP:4646/ui" >> $GITHUB_STEP_SUMMARY
           echo "- Consul UI: http://$SERVER_IP:8500/ui" >> $GITHUB_STEP_SUMMARY

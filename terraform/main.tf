@@ -499,6 +499,8 @@ resource "azurerm_virtual_machine_extension" "server_monitoring" {
 }
 
 # Ansible Inventory generieren
+# Hinweis: VMSS-Clients werden dynamisch zur Laufzeit über Azure CLI abgefragt
+# da ihre IPs erst nach dem Deployment verfügbar sind
 locals {
   inventory = <<-EOT
 [nomad_servers]
@@ -507,9 +509,8 @@ ${azurerm_linux_virtual_machine.nomad_server[i].name} ansible_host=${azurerm_pub
 %{endfor~}
 
 [nomad_clients]
-%{for i in range(var.client_count)~}
-${var.prefix}-client-${i} ansible_host=${azurerm_linux_virtual_machine_scale_set.nomad_client.id}
-%{endfor~}
+# VMSS-Instanzen werden zur Laufzeit hinzugefügt
+# Verwenden Sie: az vmss list-instance-public-ips -g ${azurerm_resource_group.nomad.name} -n ${azurerm_linux_virtual_machine_scale_set.nomad_client.name}
 
 [all:vars]
 ansible_user=azureuser
