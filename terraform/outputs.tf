@@ -81,7 +81,7 @@ output "ssh_public_key_secret_name" {
 # Resource Group Output
 output "resource_group_name" {
   description = "Name der Resource Group"
-  value       = azurerm_resource_group.nomad.name
+  value       = data.azurerm_resource_group.rg.name
 }
 
 # Ansible Inventory
