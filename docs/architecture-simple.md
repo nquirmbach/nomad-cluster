@@ -66,10 +66,14 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
   - Standard Azure VMSS Auto-Scaling (CPU-basiert)
   - Erweiterbar mit [Nomad Autoscaler für Azure VMSS](https://developer.hashicorp.com/nomad/tools/autoscaling/plugins/target/azure-vmss) für workload-basiertes Scaling
 - **Konfiguration**: Cloud-Init (automatisch beim Boot)
-  - Installiert Nomad Client
+  - Installiert Nomad Client und Docker
   - Konfiguriert Verbindung zu Servern
   - Startet Nomad Service
   - Kein Ansible-Zugriff nötig
+- **Container Registry**: 
+  - Azure Container Registry (ACR) Integration
+  - Managed Identity für ACR Pull-Zugriff
+  - Docker-Treiber mit ACR-Authentifizierung
 
 #### Consul (Optional, aber empfohlen)
 

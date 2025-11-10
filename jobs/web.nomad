@@ -1,16 +1,29 @@
 variable "IMAGE_VERSION" {
   type = string
-  default = "local"
+  default = "latest"
   description = "The version tag for the Docker image"
 }
 
-variable "ACR_SERVER" {
+variable "ACR_NAME" {
   type = string
   default = ""
-  description = "The Azure Container Registry server URL"
+  description = "The Azure Container Registry name (leer lassen für lokales Image)"
+}
+
+variable "IMAGE_NAME" {
+  type = string
+  default = "nomad-app"
+  description = "Name des Docker Images"
+}
+
+variable "DATACENTER" {
+  type = string
+  default = "dc1"
+  description = "Nomad Datacenter für den Job"
 }
 
 job "server-info-web" {
+  datacenters = ["${var.DATACENTER}"]
   type = "service"
 
   ui {
@@ -30,6 +43,18 @@ job "server-info-web" {
       name     = "server-info-svc"
       port     = "http"
       provider = "nomad"
+      
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.server-info.rule=Host(`server-info.service.consul`)"
+      ]
+      
+      check {
+        type     = "http"
+        path     = "/"
+        interval = "10s"
+        timeout  = "2s"
+      }
     }
 
     task "server-info-task" {
@@ -53,8 +78,12 @@ job "server-info-web" {
       }
       
       config {
-        image = "${var.ACR_SERVER != "" ? "${var.ACR_SERVER}/" : ""}nomad-app:${var.IMAGE_VERSION}"
+        # Dynamische Image-Auswahl: lokal oder aus ACR
+        image = "${var.ACR_NAME != "" ? "${var.ACR_NAME}.azurecr.io/" : ""}${var.IMAGE_NAME}:${var.IMAGE_VERSION}"
         ports = ["http"]
+        
+        # ACR-Authentifizierung nur wenn ACR_NAME gesetzt ist
+        ${var.ACR_NAME != "" ? "auth {\n          helper = \"acr-env\"\n        }" : ""}
       }
     }
   }

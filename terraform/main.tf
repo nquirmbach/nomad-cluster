@@ -77,6 +77,7 @@ module "compute" {
   datacenter     = var.datacenter
   nomad_version  = var.nomad_version
   consul_version = var.consul_version
+  acr_id         = module.services.acr_id
   
   tags = merge(var.tags, { Workspace = local.workspace })
   

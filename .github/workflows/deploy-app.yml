@@ -1,26 +1,37 @@
 name: Build and Deploy to Nomad
 
+run-name: Deploy to ${{ github.event.inputs.environment || 'dev' }} | ${{ github.event.head_commit.message || github.event.commits[0].message || 'Manual deployment' }}
+
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Environment (Terraform Workspace)"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
       job_file:
         description: "Path to Nomad job file"
         required: true
-        default: "jobs/example.nomad"
+        default: "jobs/web.nomad"
       app_path:
         description: "Path to application directory containing Dockerfile"
         required: false
         default: "app"
 
-  # push:
-  #   branches: [main]
-  #   paths: ["jobs/**", "app/**"]
+  push:
+    branches: [main]
+    paths: ["jobs/**", "app/**"]
 
 jobs:
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ github.event.inputs.environment || 'dev' }}
     outputs:
       image_digest: ${{ steps.docker_build.outputs.digest }}
       acr_login_server: ${{ steps.acr.outputs.login_server }}
@@ -29,19 +40,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Azure Login
+      - name: Azure Login with OIDC
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Set Environment Variables
+        id: env_vars
+        run: |
+          # Dynamisch Resource Group und ACR Namen berechnen
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PREFIX="nomad-cluster"
+          RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
+          ACR_NAME="acr${PREFIX//-/}${ENV}"
+
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
+          echo "NOMAD_ENV=$ENV" >> $GITHUB_ENV
+
+          echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+
+          echo "Using environment: $ENV"
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "ACR Name: $ACR_NAME"
 
       - name: Get ACR Details
         id: acr
         run: |
-          RESOURCE_GROUP="${{ secrets.NOMAD_RESOURCE_GROUP }}"
-          ACR_NAME="${{ secrets.ACR_NAME }}"
-          ACR_LOGIN_SERVER=$(az acr show -n $ACR_NAME -g $RESOURCE_GROUP --query loginServer -o tsv)
-          ACR_USERNAME=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query username -o tsv)
-          ACR_PASSWORD=$(az acr credential show -n $ACR_NAME -g $RESOURCE_GROUP --query "passwords[0].value" -o tsv)
+          ACR_LOGIN_SERVER=$(az acr show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query loginServer -o tsv)
+          ACR_USERNAME=$(az acr credential show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query "passwords[0].value" -o tsv)
 
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
           echo "ACR_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
@@ -83,24 +117,42 @@ jobs:
     name: Deploy to Nomad
     needs: build
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ github.event.inputs.environment || 'dev' }}
     if: always() && (needs.build.result == 'success' || inputs.app_path == '')
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Azure Login
+      - name: Azure Login with OIDC
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Set Environment Variables
+        id: env_vars
+        run: |
+          # Dynamisch Resource Group und ACR Namen berechnen
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PREFIX="nomad-cluster"
+          RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
+          ACR_NAME="acr${PREFIX//-/}${ENV}"
+
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
+          echo "NOMAD_ENV=$ENV" >> $GITHUB_ENV
+
+          echo "Using environment: $ENV"
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "ACR Name: $ACR_NAME"
 
       - name: Get ACR Details
         if: needs.build.outputs.image_digest != ''
         run: |
-          RESOURCE_GROUP="${{ secrets.NOMAD_RESOURCE_GROUP }}"
-          ACR_NAME="${{ secrets.ACR_NAME }}"
           ACR_LOGIN_SERVER=${{ needs.build.outputs.acr_login_server }}
-
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
 
       - name: Setup Nomad CLI
@@ -112,46 +164,48 @@ jobs:
 
       - name: Get Nomad Server IP
         run: |
-          RESOURCE_GROUP="${{ secrets.NOMAD_RESOURCE_GROUP }}"
           # Get first Nomad server from the resource group
-          SERVER_NAME=$(az vm list -g $RESOURCE_GROUP --query "[?contains(name, 'nomad-server')].name | [0]" -o tsv)
-          
+          SERVER_NAME=$(az vm list -g ${{ env.RESOURCE_GROUP }} --query "[?contains(name, 'nomad-server')].name | [0]" -o tsv)
+
           if [ -z "$SERVER_NAME" ]; then
-            echo "Error: No Nomad server found in resource group $RESOURCE_GROUP"
+            echo "Error: No Nomad server found in resource group ${{ env.RESOURCE_GROUP }}"
             exit 1
           fi
-          
+
           echo "Using Nomad server: $SERVER_NAME"
-          SERVER_IP=$(az vm show -d -g $RESOURCE_GROUP -n $SERVER_NAME --query publicIps -o tsv)
+          SERVER_IP=$(az vm show -d -g ${{ env.RESOURCE_GROUP }} -n $SERVER_NAME --query publicIps -o tsv)
           echo "NOMAD_ADDR=http://${SERVER_IP}:4646" >> $GITHUB_ENV
 
       - name: Set Job File Path
         run: |
           # Set the job file path
-          JOB_FILE=${{ github.event.inputs.job_file || 'jobs/example.nomad' }}
+          JOB_FILE=${{ github.event.inputs.job_file || 'jobs/web.nomad' }}
           echo "JOB_FILE=$JOB_FILE" >> $GITHUB_ENV
 
           # Print the image tag that will be used
           echo "Using image tag: ${{ needs.build.outputs.image_tag }} for deployment"
 
       - name: Validate Job
-        run: nomad job validate -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_SERVER=${{ needs.build.outputs.acr_login_server }}" ${{ env.JOB_FILE }}
+        run: nomad job validate -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_NAME=${{ env.ACR_NAME }}" -var="IMAGE_NAME=nomad-app" ${{ env.JOB_FILE }}
 
       - name: Plan Job
-        run: nomad job plan -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_SERVER=${{ needs.build.outputs.acr_login_server }}" ${{ env.JOB_FILE }}
+        run: nomad job plan -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_NAME=${{ env.ACR_NAME }}" -var="IMAGE_NAME=nomad-app" ${{ env.JOB_FILE }}
 
       - name: Deploy Job
-        run: nomad job run -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_SERVER=${{ needs.build.outputs.acr_login_server }}" ${{ env.JOB_FILE }}
+        run: nomad job run -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_NAME=${{ env.ACR_NAME }}" -var="IMAGE_NAME=nomad-app" ${{ env.JOB_FILE }}
 
       - name: Verify Deployment
         run: |
-          JOB_NAME=$(nomad job inspect -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_SERVER=${{ needs.build.outputs.acr_login_server }}" ${{ env.JOB_FILE }} | jq -r '.ID')
+          JOB_NAME=$(nomad job inspect -var="IMAGE_VERSION=${{ needs.build.outputs.image_tag }}" -var="ACR_NAME=${{ env.ACR_NAME }}" -var="IMAGE_NAME=nomad-app" ${{ env.JOB_FILE }} | jq -r '.ID')
           nomad job status $JOB_NAME
 
           echo "## Application Deployed!" >> $GITHUB_STEP_SUMMARY
           echo "- Job: $JOB_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ env.NOMAD_ENV }}" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ needs.build.outputs.image_digest }}" ]; then
             echo "- Image: ${{ env.ACR_LOGIN_SERVER }}/nomad-app:${{ needs.build.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
             echo "- Digest: ${{ needs.build.outputs.image_digest }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Using local image: nomad-app:${{ needs.build.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           fi
           echo "- Nomad UI: $NOMAD_ADDR/ui/jobs/$JOB_NAME" >> $GITHUB_STEP_SUMMARY

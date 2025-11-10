@@ -82,3 +82,8 @@ variable "consul_version" {
   description = "Consul Version"
   type        = string
 }
+
+variable "acr_id" {
+  description = "ID der Azure Container Registry"
+  type        = string
+}

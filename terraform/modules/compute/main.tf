@@ -217,6 +217,10 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
       - wget
       - curl
       - jq
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - docker.io
 
     write_files:
       - path: /etc/nomad.d/client.hcl
@@ -228,6 +232,18 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
             enabled = true
             servers = ["${azurerm_public_ip.lb.ip_address}:4647"]
             network_interface = "eth0"
+          }
+          
+          plugin "docker" {
+            config {
+              allow_privileged = true
+              volumes {
+                enabled = true
+              }
+              auth {
+                helper = "acr-env"
+              }
+            }
           }
           
           datacenter = "${var.datacenter}"
@@ -270,6 +286,10 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
       - echo "Creating nomad user..."
       - useradd --system --home /etc/nomad.d --shell /bin/false nomad
       - chown -R nomad:nomad /opt/nomad /etc/nomad.d /var/log/nomad.log
+      - echo "Configuring Docker..."
+      - systemctl enable docker
+      - systemctl start docker
+      - usermod -aG docker ubuntu
       - echo "Enabling and starting Nomad client..."
       - systemctl daemon-reload
       - systemctl enable nomad-client
@@ -279,6 +299,12 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
   )
 }
 
+# RBAC-Rolle für ACR Pull (Managed Identity)
+resource "azurerm_role_assignment" "nomad_client_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_linux_virtual_machine_scale_set.nomad_client.identity[0].principal_id
+}
 
 # Auto-Scaling für Client VMSS
 resource "azurerm_monitor_autoscale_setting" "nomad_client" {
