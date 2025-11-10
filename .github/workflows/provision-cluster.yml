@@ -27,7 +27,12 @@ on:
   push:
     branches: [main]
     paths:
-      ["terraform/**", "ansible/**", ".github/workflows/provision-cluster.yml"]
+      [
+        "terraform/**",
+        "ansible/**",
+        ".github/workflows/provision-cluster.yml",
+        "jobs/traefik.nomad",
+      ]
 
 env:
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -116,7 +121,7 @@ jobs:
         run: |
           terraform output -raw ssh_private_key > ssh_key.pem
           chmod 600 ssh_key.pem
-          
+
           # Extrahiere den Consul-Verschlüsselungsschlüssel
           terraform output -raw consul_encrypt > consul_encrypt.key
 
