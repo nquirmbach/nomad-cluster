@@ -14,14 +14,6 @@ on:
           - dev
           - stg
           - prd
-      job_file:
-        description: "Path to Nomad job file"
-        required: true
-        default: "jobs/web.nomad"
-      app_path:
-        description: "Path to application directory containing Dockerfile"
-        required: false
-        default: "app"
 
   push:
     branches: [main]
@@ -59,7 +51,7 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           PREFIX="nomad-cluster"
           RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
-          ACR_NAME="acr${PREFIX//-/}${ENV}"
+          ACR_NAME="nmdclstr${ENV}acr"
 
           echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
           echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
@@ -76,11 +68,9 @@ jobs:
       - name: Get ACR Details
         id: acr
         run: |
-          # Nur den ACR Login Server ermitteln, keine Credentials nötig dank Managed Identity
           ACR_LOGIN_SERVER=$(az acr show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query loginServer -o tsv)
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
           echo "login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
-          echo "Using ACR: $ACR_LOGIN_SERVER with Managed Identity authentication"
 
       - name: Set Image Tag
         id: set_image_tag
@@ -100,11 +90,10 @@ jobs:
           az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build and Push Docker Image
-        if: inputs.app_path != ''
         id: docker_build
         uses: docker/build-push-action@v5
         with:
-          context: ${{ github.event.inputs.app_path || 'app' }}
+          context: app
           push: true
           tags: ${{ env.ACR_LOGIN_SERVER }}/nomad-app:${{ steps.set_image_tag.outputs.image_tag }}
           cache-from: type=gha
@@ -115,7 +104,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
-    if: always() && (needs.build.result == 'success' || inputs.app_path == '')
+    permissions:
+      id-token: write
+      contents: read
+    if: always() && needs.build.result == 'success'
 
     steps:
       - uses: actions/checkout@v4
@@ -175,8 +167,8 @@ jobs:
 
       - name: Set Job File Path
         run: |
-          # Set the job file path
-          JOB_FILE=${{ github.event.inputs.job_file || 'jobs/web.nomad' }}
+          # Set the job file path (fest definiert)
+          JOB_FILE="jobs/web.nomad"
           echo "JOB_FILE=$JOB_FILE" >> $GITHUB_ENV
 
           # Print the image tag that will be used
