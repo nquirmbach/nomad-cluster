@@ -205,7 +205,15 @@ resource "azurerm_bastion_host" "nomad" {
   name                = "${var.prefix}-bastion"
   location            = var.location
   resource_group_name = var.resource_group_name
+  sku                 = "Standard"  # Standard SKU erforderlich für CLI-Zugriff
   tags                = var.tags
+  
+  # Native Client Support aktivieren (erforderlich für az CLI SSH)
+  copy_paste_enabled     = true
+  file_copy_enabled      = true
+  shareable_link_enabled = true
+  tunneling_enabled      = true
+  ip_connect_enabled     = true
 
   ip_configuration {
     name                 = "configuration"

@@ -48,8 +48,6 @@ variable "client_vm_size" {
   type        = string
 }
 
-# Bastion VM Size wird nicht mehr benötigt
-
 variable "admin_ssh_key" {
   description = "SSH Public Key für VM-Zugriff"
   type        = string
@@ -60,8 +58,6 @@ variable "subnet_id" {
   type        = string
 }
 
-# Bastion Subnet wird jetzt im Netzwerk-Modul verwaltet
-
 variable "server_nsg_id" {
   description = "ID der Network Security Group für Server"
   type        = string
@@ -71,8 +67,6 @@ variable "client_nsg_id" {
   description = "ID der Network Security Group für Clients"
   type        = string
 }
-
-# Bastion NSG wird nicht mehr benötigt
 
 variable "datacenter" {
   description = "Nomad Datacenter Name"
