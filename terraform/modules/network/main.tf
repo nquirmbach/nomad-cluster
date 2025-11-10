@@ -192,7 +192,7 @@ resource "azurerm_network_security_group" "nomad_client" {
 
 # Public IP für Azure Bastion
 resource "azurerm_public_ip" "bastion" {
-  name                = "${var.prefix}-bastion-ip"
+  name                = "${var.prefix}-bastion-pip"
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
