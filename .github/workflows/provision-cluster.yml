@@ -110,7 +110,8 @@ jobs:
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           VMSS_NAME=$(terraform output -json nomad_client_vmss_id | jq -r 'split("/") | .[-1]')
 
-          INSTANCE_IPS=$(az vmss list-instance-public-ips -g $RESOURCE_GROUP -n $VMSS_NAME --query "[].ipAddress" -o tsv)
+          # Get private IPs from VMSS instances
+          INSTANCE_IPS=$(az vmss nic list -g $RESOURCE_GROUP --vmss-name $VMSS_NAME --query "[].ipConfigurations[0].privateIPAddress" -o tsv)
 
           INSTANCE_NUM=0
           for IP in $INSTANCE_IPS; do

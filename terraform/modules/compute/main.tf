@@ -191,13 +191,9 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
     primary = true
 
     ip_configuration {
-      name                                   = "internal"
-      primary                                = true
-      subnet_id                              = var.subnet_id
-      public_ip_address {
-        name              = "client-public-ip"
-        public_ip_prefix_id = azurerm_public_ip_prefix.client.id
-      }
+      name      = "internal"
+      primary   = true
+      subnet_id = var.subnet_id
     }
 
     network_security_group_id = var.client_nsg_id
@@ -212,14 +208,6 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
   }
 }
 
-# Public IP Prefix für Client VMSS
-resource "azurerm_public_ip_prefix" "client" {
-  name                = "${var.prefix}-client-ip-prefix"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  prefix_length       = 28
-  tags                = var.tags
-}
 
 # Auto-Scaling für Client VMSS
 resource "azurerm_monitor_autoscale_setting" "nomad_client" {

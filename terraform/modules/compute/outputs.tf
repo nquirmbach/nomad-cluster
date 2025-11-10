@@ -28,10 +28,6 @@ output "nomad_client_vmss_id" {
   value       = azurerm_linux_virtual_machine_scale_set.nomad_client.id
 }
 
-output "client_ip_prefix" {
-  description = "Public IP Prefix für Nomad Clients"
-  value       = azurerm_public_ip_prefix.client.ip_prefix
-}
 
 # Diese Funktion generiert ein Ansible Inventory basierend auf den Server- und Client-VMs
 locals {

@@ -11,6 +11,7 @@
 Diese Präsentation evaluiert HashiCorp Nomad als potenzielle Alternative zu Kubernetes für Container- und Workload-Orchestrierung.
 
 **Kernfragen:**
+
 - Ist Nomad eine realisierbare Alternative zu Kubernetes?
 - Für welche Kundenprojekte macht Nomad Sinn?
 - Sollten wir Nomad in unser Beratungsportfolio aufnehmen?
@@ -21,12 +22,12 @@ Diese Präsentation evaluiert HashiCorp Nomad als potenzielle Alternative zu Kub
 
 ## Agenda (30 Min)
 
-| Zeit | Thema | Details |
-|------|-------|---------|
-| 0-5 Min | Einführung in Nomad | Was ist Nomad? Kernkonzepte |
-| 5-15 Min | Live-Demo | Azure-Setup, Deployment, Skalierung |
+| Zeit      | Thema                   | Details                               |
+| --------- | ----------------------- | ------------------------------------- |
+| 0-5 Min   | Einführung in Nomad     | Was ist Nomad? Kernkonzepte           |
+| 5-15 Min  | Live-Demo               | Azure-Setup, Deployment, Skalierung   |
 | 15-25 Min | Evaluierung & Vergleich | Tech-Stack, Markt, Kosten, Governance |
-| 25-30 Min | Fazit & Q&A | Empfehlungen, Diskussion |
+| 25-30 Min | Fazit & Q&A             | Empfehlungen, Diskussion              |
 
 ---
 
@@ -73,13 +74,33 @@ HashiCorp Nomad ist ein **flexibler Workload-Orchestrator**, der die Bereitstell
 
 ### Nomad vs. Kubernetes - Erste Unterschiede
 
-| Aspekt | Nomad | Kubernetes |
-|--------|-------|------------|
-| **Binärgröße** | ~100 MB | >1 GB |
-| **Komponenten** | 1 Binary | 10+ Komponenten |
-| **Lernkurve** | Flach (~1 Woche) | Steil (~3-6 Monate) |
-| **Workload-Typen** | Multi (Docker, VMs, Binaries) | Primär Container |
-| **Setup-Zeit** | Minuten | Stunden/Tage |
+| Aspekt             | Nomad                         | Kubernetes          |
+| ------------------ | ----------------------------- | ------------------- |
+| **Binärgröße**     | ~100 MB                       | >1 GB               |
+| **Komponenten**    | 1 Binary                      | 10+ Komponenten     |
+| **Lernkurve**      | Flach (~1 Woche)              | Steil (~3-6 Monate) |
+| **Workload-Typen** | Multi (Docker, VMs, Binaries) | Primär Container    |
+| **Setup-Zeit**     | Minuten                       | Stunden/Tage        |
+
+### Konzept-Mapping: Kubernetes → Nomad
+
+**Für K8s-Praktiker: So übersetzt man Konzepte**
+
+| Kubernetes     | Nomad                        | Beschreibung                           |
+| -------------- | ---------------------------- | -------------------------------------- |
+| **Pod**        | **Task Group**               | Gruppe von zusammengehörigen Workloads |
+| **Container**  | **Task**                     | Einzelne ausführbare Einheit           |
+| **Deployment** | **Job**                      | Deklarative Workload-Definition        |
+| **ReplicaSet** | **Task Group (count)**       | Anzahl der Instanzen                   |
+| **Service**    | **Service (Consul)**         | Service Discovery & DNS                |
+| **Ingress**    | **Ingress Gateway (Consul)** | Externes Routing                       |
+| **ConfigMap**  | **Template Stanza**          | Konfiguration                          |
+| **Secret**     | **Vault Integration**        | Secrets Management                     |
+| **DaemonSet**  | **Job (type=system)**        | Pro-Node-Deployment                    |
+| **Job**        | **Job (type=batch)**         | Einmalige Tasks                        |
+| **Namespace**  | **Namespace**                | Logische Trennung                      |
+
+**Wichtig:** Nomad ist **flacher** - weniger Abstraktionsebenen als K8s!
 
 ---
 
@@ -111,6 +132,7 @@ Azure Cloud (West Europe)
 ```
 
 **Infrastruktur-Komponenten:**
+
 - **3x Nomad Server**: Hochverfügbarer Cluster (Raft Consensus)
 - **3-10x Client Nodes**: Auto-Scaling basierend auf Last
 - **Consul**: Service Discovery & Health Checks
@@ -132,6 +154,7 @@ nomad status
 ```
 
 **Erwartetes Ergebnis:**
+
 - 3 Server im Quorum
 - N Client-Nodes (healthy)
 - Cluster-Verfügbarkeit 100%
@@ -144,24 +167,24 @@ nomad status
 job "web-app" {
   datacenters = ["dc1"]
   type = "service"
-  
+
   group "web" {
     count = 3
-    
+
     network {
       port "http" {
         to = 5000
       }
     }
-    
+
     task "flask-app" {
       driver = "docker"
-      
+
       config {
         image = "ghcr.io/[...]/web-app:latest"
         ports = ["http"]
       }
-      
+
       resources {
         cpu    = 500
         memory = 256
@@ -202,11 +225,13 @@ nomad job status web-app
 ### Demo-Highlights
 
 **Für technische Berater:**
+
 - Einfache Job-Definition (HCL-Syntax)
 - Schnelles Deployment (Sekunden)
 - Transparente Scheduling-Entscheidungen
 
 **Für nicht-technische Berater:**
+
 - Web-UI (Nomad Dashboard)
 - Klare Status-Visualisierung
 - Einfache Konzepte
@@ -219,26 +244,26 @@ nomad job status web-app
 
 ### Architektur-Komplexität
 
-| Komponente | Nomad | Kubernetes |
-|------------|-------|------------|
-| **Control Plane** | 1 Binary | 4+ Komponenten |
-| **Data Plane** | 1 Binary | 2+ Komponenten |
-| **Service Discovery** | Integriert | Externe Lösung |
-| **Storage** | Basic (CSI) | Erweitert (PV/PVC) |
-| **Networking** | Einfach | Komplex (CNI) |
+| Komponente            | Nomad       | Kubernetes         |
+| --------------------- | ----------- | ------------------ |
+| **Control Plane**     | 1 Binary    | 4+ Komponenten     |
+| **Data Plane**        | 1 Binary    | 2+ Komponenten     |
+| **Service Discovery** | Integriert  | Externe Lösung     |
+| **Storage**           | Basic (CSI) | Erweitert (PV/PVC) |
+| **Networking**        | Einfach     | Komplex (CNI)      |
 
 ### Feature-Vergleich
 
-| Feature | Nomad | Kubernetes | Bewertung |
-|---------|-------|------------|-----------|
-| **Container-Orchestrierung** | ✅ Sehr gut | ✅ Exzellent | K8s leicht vorne |
-| **Multi-Workload** | ✅ Native | ⚠️ Mit Plugins | Nomad überlegen |
-| **Service Mesh** | ⚠️ Via Consul | ✅ Istio, Linkerd | K8s reifer |
-| **Auto-Scaling** | ✅ Job & Node | ✅ HPA/VPA/CA | Vergleichbar |
-| **Secrets Management** | ⚠️ Basic/Vault | ✅ Native | K8s besser |
-| **GitOps** | ⚠️ Limitiert | ✅ ArgoCD/Flux | K8s ausgereifter |
-| **Observability** | ⚠️ Basis | ✅ Umfangreich | K8s deutlich besser |
-| **Multi-Tenancy** | ⚠️ Namespaces | ✅ Namespaces+RBAC | K8s besser |
+| Feature                      | Nomad          | Kubernetes         | Bewertung           |
+| ---------------------------- | -------------- | ------------------ | ------------------- |
+| **Container-Orchestrierung** | ✅ Sehr gut    | ✅ Exzellent       | K8s leicht vorne    |
+| **Multi-Workload**           | ✅ Native      | ⚠️ Mit Plugins     | Nomad überlegen     |
+| **Service Mesh**             | ⚠️ Via Consul  | ✅ Istio, Linkerd  | K8s reifer          |
+| **Auto-Scaling**             | ✅ Job & Node  | ✅ HPA/VPA/CA      | Vergleichbar        |
+| **Secrets Management**       | ⚠️ Basic/Vault | ✅ Native          | K8s besser          |
+| **GitOps**                   | ⚠️ Limitiert   | ✅ ArgoCD/Flux     | K8s ausgereifter    |
+| **Observability**            | ⚠️ Basis       | ✅ Umfangreich     | K8s deutlich besser |
+| **Multi-Tenancy**            | ⚠️ Namespaces  | ✅ Namespaces+RBAC | K8s besser          |
 
 ### Erweiterbarkeit & CRDs
 
@@ -259,6 +284,7 @@ spec:
 ```
 
 **Kubernetes CRDs:**
+
 - ✅ Native API-Erweiterung
 - ✅ Eigene Controller (Operator Pattern)
 - ✅ Deklarative Custom Resources
@@ -266,6 +292,7 @@ spec:
 - ✅ Riesiges Ecosystem (100+ Operators)
 
 **Beispiel-Operators:**
+
 - Prometheus Operator (Monitoring)
 - Cert-Manager (TLS-Zertifikate)
 - Postgres Operator (Datenbanken)
@@ -273,12 +300,14 @@ spec:
 - Argo CD (GitOps)
 
 **Nomad-Äquivalent:**
+
 - ❌ Keine CRDs oder vergleichbare Erweiterbarkeit
 - ⚠️ Job-Templates mit Variablen (limitiert)
 - ⚠️ Plugins für Task-Treiber (komplexer)
 - ⚠️ Nomad Pack (Template-System, Alpha-Stadium)
 
 **Impact:**
+
 - K8s-Ecosystem baut massiv auf CRDs auf
 - Nomad fehlt diese Erweiterbarkeit → Geringeres Ecosystem
 - **Für Enterprises**: CRDs ermöglichen standardisierte Plattformen
@@ -290,6 +319,7 @@ spec:
 #### 1. Multi-Workload Support (Native)
 
 **Problem bei Kubernetes:**
+
 - Primär für Container designed
 - VMs benötigen KubeVirt (komplex)
 - Binaries benötigen Workarounds
@@ -328,11 +358,13 @@ task "script" {
 #### 2. Operationale Einfachheit
 
 **Problem bei Kubernetes:**
+
 - Komplexes Troubleshooting (etcd, API-Server, Scheduler, Controller)
 - Upgrade-Komplexität (K8s Minor-Versions alle 3 Monate)
 - Viele bewegliche Teile
 
 **Nomad-Lösung:**
+
 - Single Binary → Einfaches Troubleshooting
 - Weniger Breaking Changes
 - Upgrades: Binary austauschen, neu starten
@@ -356,17 +388,18 @@ journalctl -u kubelet
 
 **Control Plane Ressourcen:**
 
-| Setup | Nomad | Kubernetes |
-|-------|-------|------------|
-| **CPU** | ~200m pro Server | ~2000m (2 Cores) |
-| **Memory** | ~512 MB | ~4 GB |
-| **Disk I/O** | Niedrig | Mittel-Hoch (etcd) |
+| Setup        | Nomad            | Kubernetes         |
+| ------------ | ---------------- | ------------------ |
+| **CPU**      | ~200m pro Server | ~2000m (2 Cores)   |
+| **Memory**   | ~512 MB          | ~4 GB              |
+| **Disk I/O** | Niedrig          | Mittel-Hoch (etcd) |
 
 **Für Edge/IoT**: Nomad läuft auf deutlich kleineren Maschinen
 
 #### 4. Schnelleres Job-Scheduling
 
 **Scheduling Performance:**
+
 - Nomad: ~1000 Placements/Sekunde
 - Kubernetes: ~100-300 Pods/Sekunde
 
@@ -375,11 +408,13 @@ journalctl -u kubelet
 #### 5. Flexible Datacenter-Federation
 
 **Nomad WAN Federation:**
+
 - Native Multi-Region ohne zusätzliche Tools
 - Jobs über Regionen hinweg orchestrieren
 - Einfachere Topologie als K8s-Federation
 
 **Kubernetes:**
+
 - Benötigt zusätzliche Tools (Rancher, Submariner)
 - Komplexe Netzwerk-Konfiguration
 - Höherer Betriebs-Overhead
@@ -389,23 +424,27 @@ journalctl -u kubelet
 #### 1. Deklaratives Modell & Reconciliation
 
 **Kubernetes Operator Pattern:**
+
 - Kontinuierliche Reconciliation Loop
 - Automatische Drift-Korrektur
 - Self-Healing über Desired State
 
 **Nomad:**
+
 - Teilweise deklarativ
 - Weniger ausgereift bei komplexen State-Übergängen
 
 #### 2. Networking & Service Mesh
 
 **Kubernetes:**
+
 - Ausgereiftes CNI-Ecosystem (Calico, Cilium, etc.)
 - Native Network Policies
 - Service Mesh Integration (Istio, Linkerd)
 - Ingress Controller Ecosystem
 
 **Nomad:**
+
 - Basis-Networking (Bridge, Host)
 - Consul Connect für Service Mesh (zusätzliche Komponente)
 - Weniger Feature-reich
@@ -413,12 +452,14 @@ journalctl -u kubelet
 #### 3. Storage Orchestration
 
 **Kubernetes:**
+
 - StorageClasses für dynamische Provisioning
 - Volume Snapshots
 - CSI-Treiber-Ecosystem
 - StatefulSets mit ordered deployment
 
 **Nomad:**
+
 - Host Volumes (statisch)
 - CSI-Support (begrenzt)
 - Keine native Snapshot-Funktionalität
@@ -430,13 +471,14 @@ journalctl -u kubelet
 ```
 Native Integration:
 ├── Prometheus (Metrics)
-├── Fluentd/Loki (Logs)  
+├── Fluentd/Loki (Logs)
 ├── Jaeger (Tracing)
 ├── OpenTelemetry
 └── Service Mesh Telemetry
 ```
 
 **Nomad:**
+
 - Prometheus-Integration (manuell)
 - Logging per Syslog
 - Tracing: externe Integration notwendig
@@ -444,11 +486,13 @@ Native Integration:
 #### 5. Platform Engineering
 
 **Kubernetes als Plattform:**
+
 - CRDs für Abstraktion (Developer Self-Service)
 - Operator Framework für Custom Automation
 - Backstage/Port für Internal Developer Platforms
 
 **Nomad:**
+
 - Limitierte Abstraktion-Möglichkeiten
 - Kein etabliertes Platform-Engineering-Ecosystem
 
@@ -457,6 +501,7 @@ Native Integration:
 #### Kubernetes Community
 
 **Zahlen (2024):**
+
 - **Contributors**: >3000 aktive
 - **GitHub Stars**: >110.000
 - **Meetups**: Global >500, DACH >50
@@ -465,6 +510,7 @@ Native Integration:
 - **Stack Overflow**: >100.000 Fragen
 
 **Community-Aktivität:**
+
 - Täglich neue Releases/Tools
 - Aktive Special Interest Groups (SIGs)
 - Vendor-neutral (CNCF)
@@ -472,6 +518,7 @@ Native Integration:
 #### Nomad Community
 
 **Zahlen (2024):**
+
 - **Contributors**: ~200 aktive
 - **GitHub Stars**: ~14.000
 - **Meetups**: Global <20, DACH ~2
@@ -480,6 +527,7 @@ Native Integration:
 - **Stack Overflow**: ~1.500 Fragen
 
 **Community-Aktivität:**
+
 - Weniger frequent Releases
 - Primär HashiCorp-getrieben
 - Kleinere aber fokussierte Community
@@ -489,6 +537,7 @@ Native Integration:
 **CNCF Landscape (K8s-relevant): ~1.000 Tools**
 
 Kategorien:
+
 - Container Registries: 20+
 - CI/CD: 50+
 - Monitoring: 40+
@@ -504,6 +553,7 @@ Kategorien:
 - CI/CD Integration: Wenige
 
 **Impact:**
+
 - K8s: Lösung für fast jedes Problem verfügbar
 - Nomad: Oft Custom-Entwicklung notwendig
 
@@ -512,25 +562,30 @@ Kategorien:
 #### Kubernetes Limitations
 
 **1. Komplexität**
+
 - Steile Lernkurve (3-6 Monate bis produktiv)
 - Schwieriges Troubleshooting
 - Upgrade-Risiken bei Breaking Changes
 
 **2. Ressourcen-Overhead**
+
 - Control Plane benötigt signifikante Ressourcen
 - etcd als Single Point of Complexity
 - Nicht geeignet für Edge/IoT (<2GB RAM)
 
 **3. Über-Engineering für kleine Teams**
+
 - Zu viele Features für einfache Use Cases
 - Overhead ohne entsprechenden Nutzen bei <5 Services
 
 **4. Multi-Tenancy Herausforderungen**
+
 - "Harte" Multi-Tenancy schwierig
 - Namespace-Isolation nicht vollständig
 - Shared Control Plane Risiken
 
 **5. Stateful Workloads**
+
 - StatefulSets komplex
 - Backup/Restore nicht trivial
 - Storage-Orchestration fehleranfällig
@@ -538,57 +593,114 @@ Kategorien:
 #### Nomad Limitations
 
 **1. Feature-Gaps**
+
 - Kein natives Secrets-Management (Vault benötigt)
 - Eingeschränkte Network Policies
 - Kein Ingress-Controller-Konzept
 
 **2. Ecosystem-Limitierung**
+
 - Wenige Third-Party-Tools
 - Kaum fertige Lösungen (Operators, etc.)
 - Mehr Custom-Development notwendig
 
 **3. Erweiterbarkeit**
+
 - Keine CRDs oder ähnliches
 - Schwierig, eigene Abstraktionen zu bauen
 - Limitiertes Plugin-System
 
 **4. Enterprise-Features**
+
 - Viele Features nur in Enterprise-Version
 - Audit-Logging nicht in OSS
 - SSO-Integration Enterprise-only
 
 **5. Markt-Position**
+
 - Schwierige Rekrutierung
 - Weniger Training-Material
 - Geringere Vendor-Unterstützung
 
 **6. GitOps-Maturity**
+
 - Kein ArgoCD/Flux-Äquivalent
 - Levant/Nomad Pack noch unreif
 - Mehr manuelle Prozesse
 
 **7. Observability**
+
 - Keine native Metrics-Aggregation
 - Logging basic
 - Distributed Tracing extern
 
 #### Vergleich: Welche Limitation wiegt schwerer?
 
-| Limitation | Nomad | Kubernetes | Kritikalität |
-|------------|-------|------------|--------------|
-| **Lernkurve** | ✅ | ❌ | Hoch (Onboarding) |
-| **Ressourcen-Overhead** | ✅ | ❌ | Mittel (Kosten) |
-| **Feature-Vollständigkeit** | ❌ | ✅ | Hoch (Enterprise) |
-| **Ecosystem** | ❌ | ✅ | Sehr Hoch |
-| **Community-Support** | ❌ | ✅ | Hoch |
-| **Erweiterbarkeit** | ❌ | ✅ | Sehr Hoch |
-| **Multi-Workload** | ✅ | ❌ | Mittel (Nische) |
-| **Operationale Einfachheit** | ✅ | ❌ | Mittel |
+| Limitation                   | Nomad | Kubernetes | Kritikalität      |
+| ---------------------------- | ----- | ---------- | ----------------- |
+| **Lernkurve**                | ✅    | ❌         | Hoch (Onboarding) |
+| **Ressourcen-Overhead**      | ✅    | ❌         | Mittel (Kosten)   |
+| **Feature-Vollständigkeit**  | ❌    | ✅         | Hoch (Enterprise) |
+| **Ecosystem**                | ❌    | ✅         | Sehr Hoch         |
+| **Community-Support**        | ❌    | ✅         | Hoch              |
+| **Erweiterbarkeit**          | ❌    | ✅         | Sehr Hoch         |
+| **Multi-Workload**           | ✅    | ❌         | Mittel (Nische)   |
+| **Operationale Einfachheit** | ✅    | ❌         | Mittel            |
 
 **Fazit Limitations:**
+
 - K8s-Limitations betreffen primär **Einstieg und Betrieb**
 - Nomad-Limitations betreffen **Features und Zukunftssicherheit**
 - Für Enterprises wiegen Nomad-Limitations schwerer
+
+### Praktiker-Erfahrungen: Der Umstieg von K8s zu Nomad
+
+**Quelle:** Iris Carrera (SRE bei HashiCorp) - "Nomad for Kubernetes Practitioners"
+
+#### Was einfacher ist bei Nomad
+
+✅ **Schnellerer Einstieg**
+
+- Dev-Cluster in Sekunden: `nomad agent -dev`
+- Keine komplexe Cluster-Initialisierung
+- Sofort produktiv ohne tagelange Einarbeitung
+
+✅ **Weniger Abstraktionsschichten**
+
+- Kein Helm, Kustomize, Operators notwendig
+- Direkte Job-Definitionen in HCL
+- Klare 1:1-Beziehung zwischen Code und Deployment
+
+✅ **Einfacheres Mental Model**
+
+- Job → Task Group → Task (3 Ebenen)
+- vs. K8s: Deployment → ReplicaSet → Pod → Container (4+ Ebenen)
+
+#### Was herausfordernd ist
+
+⚠️ **Mindset-Wechsel erforderlich**
+
+- Weniger "Magie" als bei K8s
+- Mehr explizite Konfiguration
+- Andere Denkweise bei Service Discovery (Consul vs. K8s Services)
+
+⚠️ **Fehlende Tooling-Reife**
+
+- Kein Helm-Äquivalent (Nomad Pack ist Alpha)
+- Weniger fertige Lösungen
+- Mehr manuelle Arbeit bei komplexen Deployments
+
+⚠️ **Dokumentation & Community**
+
+- Weniger Stack Overflow-Antworten
+- Kleinere Community
+- Weniger Tutorials und Best Practices
+
+#### Zitat aus der Praxis
+
+> "Nomad ist einfacher zu starten, aber das Fehlen von Helm-ähnlichen Tools macht komplexe Deployments herausfordernder. Der Mindset-Wechsel war für mich als K8s-Praktikerin zunächst schwierig."
+>
+> — Iris Carrera, SRE bei HashiCorp
 
 ### Lernkurve & Betrieb
 
@@ -608,11 +720,11 @@ Expertise → 3-6 Monate
 
 **Betriebsaufwand (FTE):**
 
-| Cluster-Größe | Nomad | Kubernetes | Differenz |
-|---------------|-------|------------|-----------|
+| Cluster-Größe           | Nomad       | Kubernetes  | Differenz          |
+| ----------------------- | ----------- | ----------- | ------------------ |
 | **Small (10-50 Nodes)** | 0.2-0.5 FTE | 0.5-1.0 FTE | **50-60% weniger** |
-| **Medium (50-200)** | 0.5-1.0 FTE | 1.5-2.5 FTE | **60-70% weniger** |
-| **Large (200+)** | 1.0-2.0 FTE | 3.0-5.0 FTE | **60-70% weniger** |
+| **Medium (50-200)**     | 0.5-1.0 FTE | 1.5-2.5 FTE | **60-70% weniger** |
+| **Large (200+)**        | 1.0-2.0 FTE | 3.0-5.0 FTE | **60-70% weniger** |
 
 ---
 
@@ -629,15 +741,17 @@ Nomad:        ██ 4%
 Andere:       █ 3%
 ```
 
-*Quelle: CNCF Survey 2024*
+_Quelle: CNCF Survey 2024_
 
 ### DACH-Region - Nomad-Nutzung
 
 **Geschätzte Unternehmen mit Nomad in Production:**
+
 - **Deutschland**: <50 Unternehmen
 - **Kubernetes**: >5000 Unternehmen
 
 **Problem:** Fehlende kritische Masse führt zu:
+
 - Wenig lokale Expertise
 - Kaum Community-Events
 - Schwierige Rekrutierung
@@ -646,13 +760,14 @@ Andere:       █ 3%
 
 **Indeed.de Stellenausschreibungen (Nov 2024):**
 
-| Skill | Anzahl Stellen |
-|-------|----------------|
-| **Kubernetes** | ~3.500 |
-| **Docker** | ~2.800 |
-| **Nomad** | ~15-20 |
+| Skill          | Anzahl Stellen |
+| -------------- | -------------- |
+| **Kubernetes** | ~3.500         |
+| **Docker**     | ~2.800         |
+| **Nomad**      | ~15-20         |
 
 **LinkedIn-Suche (DACH):**
+
 - "Kubernetes Engineer": 2.000+ Profile
 - "Nomad Engineer": <50 Profile
 
@@ -660,14 +775,15 @@ Andere:       █ 3%
 
 ### Managed Services
 
-| Anbieter | Kubernetes | Nomad |
-|----------|------------|-------|
-| **AWS** | ✅ EKS | ❌ |
-| **Azure** | ✅ AKS | ❌ |
-| **Google Cloud** | ✅ GKE | ❌ |
-| **HashiCorp** | N/A | ✅ HCP (Beta) |
+| Anbieter         | Kubernetes | Nomad         |
+| ---------------- | ---------- | ------------- |
+| **AWS**          | ✅ EKS     | ❌            |
+| **Azure**        | ✅ AKS     | ❌            |
+| **Google Cloud** | ✅ GKE     | ❌            |
+| **HashiCorp**    | N/A        | ✅ HCP (Beta) |
 
 **HCP Nomad:**
+
 - Seit 2023 in Public Beta
 - Keine garantierte EU-Region
 - Keine Enterprise-SLAs
@@ -713,27 +829,28 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Gesamt-Kostenvergleich (inkl. Personal)
 
 **Annahmen:**
+
 - DevOps Engineer: €90.000/Jahr Vollkosten
 
-| Kostenfaktor | Nomad (Self) | AKS (Managed) | Differenz |
-|--------------|--------------|---------------|-----------|
-| **Infrastruktur** | €20.760 | €20.160 | +€600 |
-| **Betrieb** | 0.5 FTE = €45.000 | 0.3 FTE = €27.000 | +€18.000 |
-| **Initial Setup** | €10.000 | €5.000 | +€5.000 |
-| **Training** | €5.000 | €8.000 | -€3.000 |
-| **GESAMT Jahr 1** | **€80.760** | **€60.160** | **+34%** |
-| **GESAMT ab Jahr 2** | **€65.760** | **€55.160** | **+19%** |
+| Kostenfaktor         | Nomad (Self)      | AKS (Managed)     | Differenz |
+| -------------------- | ----------------- | ----------------- | --------- |
+| **Infrastruktur**    | €20.760           | €20.160           | +€600     |
+| **Betrieb**          | 0.5 FTE = €45.000 | 0.3 FTE = €27.000 | +€18.000  |
+| **Initial Setup**    | €10.000           | €5.000            | +€5.000   |
+| **Training**         | €5.000            | €8.000            | -€3.000   |
+| **GESAMT Jahr 1**    | **€80.760**       | **€60.160**       | **+34%**  |
+| **GESAMT ab Jahr 2** | **€65.760**       | **€55.160**       | **+19%**  |
 
 **Fazit:** Nomad ist **teurer** durch höheren Self-Management-Aufwand.
 
 ### Skalierungs-Kosten (500 Workloads)
 
-| Faktor | Nomad | AKS |
-|--------|-------|-----|
+| Faktor        | Nomad         | AKS           |
+| ------------- | ------------- | ------------- |
 | Infrastruktur | ~€8.000/Monat | ~€8.000/Monat |
-| Personal | 1.5-2.0 FTE | 0.8-1.2 FTE |
-| **Jährlich** | **~€231.000** | **~€168.000** |
-| **Differenz** | | **+37%** |
+| Personal      | 1.5-2.0 FTE   | 0.8-1.2 FTE   |
+| **Jährlich**  | **~€231.000** | **~€168.000** |
+| **Differenz** |               | **+37%**      |
 
 ---
 
@@ -741,25 +858,25 @@ GESAMT AKS:                            ~€1.680/Monat
 
 ### Compliance-Anforderungen
 
-| Anforderung | Nomad | Kubernetes (AKS) | Details |
-|-------------|-------|------------------|---------|
-| **DSGVO** | ⚠️ Self only | ✅ Managed | AKS hat EU-Compliance |
-| **BSI C5** | ❌ | ✅ Zertifiziert | Public-Sector kritisch |
-| **SOC 2** | ⚠️ Eigen | ✅ Zertifiziert | FinTech relevant |
-| **ISO 27001** | ⚠️ Eigen | ✅ Zertifiziert | Enterprise Standard |
-| **Audit-Logs** | ⚠️ Basis | ✅ Vollständig | Azure Monitor |
+| Anforderung    | Nomad        | Kubernetes (AKS) | Details                |
+| -------------- | ------------ | ---------------- | ---------------------- |
+| **DSGVO**      | ⚠️ Self only | ✅ Managed       | AKS hat EU-Compliance  |
+| **BSI C5**     | ❌           | ✅ Zertifiziert  | Public-Sector kritisch |
+| **SOC 2**      | ⚠️ Eigen     | ✅ Zertifiziert  | FinTech relevant       |
+| **ISO 27001**  | ⚠️ Eigen     | ✅ Zertifiziert  | Enterprise Standard    |
+| **Audit-Logs** | ⚠️ Basis     | ✅ Vollständig   | Azure Monitor          |
 
 **Problem:** Nomad Self-Managed = **volle Compliance-Verantwortung**
 
 ### Security & Zugriffskontrolle
 
-| Feature | Nomad | Kubernetes |
-|---------|-------|------------|
-| **RBAC** | ⚠️ ACL (weniger granular) | ✅ Vollständig |
-| **Multi-Tenancy** | ⚠️ Limitiert | ✅ Namespaces+Policies |
-| **Pod Security** | ❌ | ✅ Standards |
-| **Secret Encryption** | ⚠️ Vault | ✅ Native |
-| **Network Policies** | ❌ Extern | ✅ Native |
+| Feature               | Nomad                     | Kubernetes             |
+| --------------------- | ------------------------- | ---------------------- |
+| **RBAC**              | ⚠️ ACL (weniger granular) | ✅ Vollständig         |
+| **Multi-Tenancy**     | ⚠️ Limitiert              | ✅ Namespaces+Policies |
+| **Pod Security**      | ❌                        | ✅ Standards           |
+| **Secret Encryption** | ⚠️ Vault                  | ✅ Native              |
+| **Network Policies**  | ❌ Extern                 | ✅ Native              |
 
 ---
 
@@ -767,20 +884,21 @@ GESAMT AKS:                            ~€1.680/Monat
 
 ### Wann macht Nomad Sinn?
 
-| Use Case | Nomad | K8s | Empfehlung |
-|----------|-------|-----|------------|
-| **Greenfield Microservices** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | **Kubernetes** |
-| **Legacy Migration** | ⭐⭐⭐⭐ | ⭐⭐ | **Nomad** |
-| **Batch/Data Processing** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | **Nomad** |
-| **Edge Computing** | ⭐⭐⭐⭐ | ⭐⭐⭐ | **Nomad** |
-| **Multi-Cloud** | ⭐⭐⭐⭐ | ⭐⭐⭐ | **Nomad** |
-| **Startup (<10 Devs)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | **Nomad** |
-| **Enterprise (>100 Devs)** | ⭐⭐ | ⭐⭐⭐⭐⭐ | **Kubernetes** |
-| **Highly Regulated** | ⭐⭐ | ⭐⭐⭐⭐⭐ | **Kubernetes** |
+| Use Case                     | Nomad      | K8s        | Empfehlung     |
+| ---------------------------- | ---------- | ---------- | -------------- |
+| **Greenfield Microservices** | ⭐⭐⭐     | ⭐⭐⭐⭐⭐ | **Kubernetes** |
+| **Legacy Migration**         | ⭐⭐⭐⭐   | ⭐⭐       | **Nomad**      |
+| **Batch/Data Processing**    | ⭐⭐⭐⭐⭐ | ⭐⭐⭐     | **Nomad**      |
+| **Edge Computing**           | ⭐⭐⭐⭐   | ⭐⭐⭐     | **Nomad**      |
+| **Multi-Cloud**              | ⭐⭐⭐⭐   | ⭐⭐⭐     | **Nomad**      |
+| **Startup (<10 Devs)**       | ⭐⭐⭐⭐⭐ | ⭐⭐⭐     | **Nomad**      |
+| **Enterprise (>100 Devs)**   | ⭐⭐       | ⭐⭐⭐⭐⭐ | **Kubernetes** |
+| **Highly Regulated**         | ⭐⭐       | ⭐⭐⭐⭐⭐ | **Kubernetes** |
 
 ### Ideale Nomad-Kunden
 
 **Profil:**
+
 - **Größe**: KMU, Startups (10-100 Mitarbeiter)
 - **Tech**: Mixed Workloads (Container+VMs)
 - **DevOps-Reife**: Basis bis Mittel
@@ -788,6 +906,7 @@ GESAMT AKS:                            ~€1.680/Monat
 - **Compliance**: Standard (keine BSI/SOC2)
 
 **Beispiel-Szenarien:**
+
 1. SaaS-Startup mit schnellem MVP
 2. Legacy-Modernisierung (schrittweise)
 3. IoT-Edge-Orchestrierung
@@ -807,22 +926,22 @@ GESAMT AKS:                            ~€1.680/Monat
 
 ### Technische Risiken
 
-| Risiko | Wahrscheinlichkeit | Impact | Nomad | K8s |
-|--------|-------------------|--------|-------|-----|
-| **Skill-Mangel** | Hoch | Hoch | ❌ Kritisch | ⚠️ Hoch |
-| **Feature-Lücken** | Mittel | Mittel | ⚠️ | ✅ |
-| **Skalierung** | Niedrig | Hoch | ⚠️ | ✅ |
-| **Security** | Niedrig | Sehr Hoch | ⚠️ | ✅ |
+| Risiko             | Wahrscheinlichkeit | Impact    | Nomad       | K8s     |
+| ------------------ | ------------------ | --------- | ----------- | ------- |
+| **Skill-Mangel**   | Hoch               | Hoch      | ❌ Kritisch | ⚠️ Hoch |
+| **Feature-Lücken** | Mittel             | Mittel    | ⚠️          | ✅      |
+| **Skalierung**     | Niedrig            | Hoch      | ⚠️          | ✅      |
+| **Security**       | Niedrig            | Sehr Hoch | ⚠️          | ✅      |
 
 ### Business-Risiken
 
-| Risiko | Nomad | Kubernetes |
-|--------|-------|------------|
-| **Markt-Akzeptanz** | ❌ Limitiert | ✅ Standard |
-| **Kunden-Akzeptanz** | ⚠️ Erklärungsbedürftig | ✅ Etabliert |
-| **Rekrutierung** | ❌ Sehr schwierig | ✅ Großer Pool |
-| **Partner-Ecosystem** | ⚠️ Klein | ✅ Sehr groß |
-| **Long-Term Support** | ⚠️ HashiCorp | ✅ CNCF |
+| Risiko                | Nomad                  | Kubernetes     |
+| --------------------- | ---------------------- | -------------- |
+| **Markt-Akzeptanz**   | ❌ Limitiert           | ✅ Standard    |
+| **Kunden-Akzeptanz**  | ⚠️ Erklärungsbedürftig | ✅ Etabliert   |
+| **Rekrutierung**      | ❌ Sehr schwierig      | ✅ Großer Pool |
+| **Partner-Ecosystem** | ⚠️ Klein               | ✅ Sehr groß   |
+| **Long-Term Support** | ⚠️ HashiCorp           | ✅ CNCF        |
 
 ---
 
@@ -836,7 +955,7 @@ GESAMT AKS:                            ~€1.680/Monat
 ✅ **Multi-Workload**: Mehr als nur Container  
 ✅ **Ressourcen-Effizienz**: Geringerer Overhead  
 ✅ **Portabilität**: Cloud-agnostic  
-✅ **Schnelligkeit**: Schnelles Setup  
+✅ **Schnelligkeit**: Schnelles Setup
 
 ### Schwächen von Nomad
 
@@ -844,13 +963,14 @@ GESAMT AKS:                            ~€1.680/Monat
 ❌ **Talentpool**: Kaum Experten verfügbar  
 ❌ **Ecosystem**: Deutlich kleiner  
 ❌ **Compliance**: Kein Managed Service EU  
-❌ **Feature-Set**: Weniger als K8s  
+❌ **Feature-Set**: Weniger als K8s
 
 ## Empfehlungen für unsere Beratung
 
 ### Empfehlung 1: Fokus auf Kubernetes
 
 **Begründung:**
+
 - Industry Standard mit 88% Marktanteil
 - Großer Talentpool in Deutschland
 - Bessere Kundenakzeptanz
@@ -874,11 +994,13 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Empfehlung 3: Skill-Aufbau
 
 **Nomad-Kompetenz:**
+
 - **1-2 Spezialisten** im Team ausbilden
 - **Pilot-Projekt** intern durchführen (z.B. CI/CD)
 - **Keine breite Schulung** notwendig
 
 **Kubernetes-Kompetenz:**
+
 - **Weiter ausbauen**: Mehr CKA/CKAD Zertifizierungen
 - **GitOps-Skills**: ArgoCD, Flux
 - **Service Mesh**: Istio, Linkerd
@@ -886,6 +1008,7 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Empfehlung 4: Marketing-Strategie
 
 **Positionierung:**
+
 - "Kubernetes-First" Ansatz in Marketing
 - Nomad als "Alternative für spezielle Anforderungen"
 - Fokus auf Kubernetes-Expertise nach außen
@@ -938,12 +1061,12 @@ GESAMT AKS:                            ~€1.680/Monat
 
 ### Szenario: 100-Node Cluster über 3 Jahre
 
-| Faktor | Nomad (Self) | Kubernetes (AKS) | Differenz |
-|--------|--------------|------------------|-----------|
-| **Jahr 1** | €80.760 | €60.160 | +€20.600 |
-| **Jahr 2** | €65.760 | €55.160 | +€10.600 |
-| **Jahr 3** | €65.760 | €55.160 | +€10.600 |
-| **Gesamt 3J** | **€212.280** | **€170.480** | **+€41.800 (+24%)** |
+| Faktor        | Nomad (Self) | Kubernetes (AKS) | Differenz           |
+| ------------- | ------------ | ---------------- | ------------------- |
+| **Jahr 1**    | €80.760      | €60.160          | +€20.600            |
+| **Jahr 2**    | €65.760      | €55.160          | +€10.600            |
+| **Jahr 3**    | €65.760      | €55.160          | +€10.600            |
+| **Gesamt 3J** | **€212.280** | **€170.480**     | **+€41.800 (+24%)** |
 
 **Breakeven:** Nomad wird nie günstiger als managed Kubernetes
 
@@ -952,6 +1075,7 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Kernerkenntnisse aus der Evaluierung
 
 **Nomads Stärken sind real:**
+
 - ✅ Deutlich einfacher zu lernen und zu betreiben
 - ✅ Exzellenter Multi-Workload-Support (Container + VMs + Binaries)
 - ✅ Geringerer Ressourcen-Overhead
@@ -959,6 +1083,7 @@ GESAMT AKS:                            ~€1.680/Monat
 - ✅ Native Multi-Region-Federation
 
 **Aber: Kritische Schwächen überwiegen für Enterprise:**
+
 - ❌ **Keine CRDs** → Limitierte Plattform-Abstraktion
 - ❌ **Kleines Ecosystem** → Mehr Custom-Development
 - ❌ **Schwache Community** in DACH → Rekrutierungsproblem
@@ -966,6 +1091,7 @@ GESAMT AKS:                            ~€1.680/Monat
 - ❌ **GitOps-Immaturity** → Weniger Automatisierung
 
 **Kubernetes-Vorteile sind entscheidend:**
+
 - ✅ CRDs & Operator Pattern → Enterprise-Plattformen
 - ✅ Riesiges Ecosystem → Fertige Lösungen
 - ✅ Managed Services → Niedrigere TCO
@@ -975,16 +1101,19 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Für unsere Firma
 
 1. ✅ **Kubernetes bleibt Haupt-Standard**
+
    - Primäre Marketing-Botschaft
    - Hauptfokus für Skill-Entwicklung
    - Default für 90% der Projekte
 
 2. ⚠️ **Nomad als taktische Nischen-Option**
+
    - Für spezifische Use Cases (Legacy, Edge, Batch)
    - Differenzierungsmerkmal ("Wir kennen Alternativen")
    - Nicht aktiv vermarkten, aber verfügbar
 
 3. ✅ **Skill-Aufbau fokussiert**
+
    - 1-2 Nomad-Spezialisten (die auch K8s können)
    - Team-weite K8s-Kompetenz weiter ausbauen
    - CRD & Operator-Entwicklung als Differentiator
@@ -998,6 +1127,7 @@ GESAMT AKS:                            ~€1.680/Monat
 **Default-Empfehlung:** Managed Kubernetes (AKS/EKS/GKE)
 
 **Begründung:**
+
 - Industry Standard mit langfristiger Zukunftssicherheit
 - Riesiges Ecosystem für alle Anforderungen
 - Managed Services senken Betriebskosten
@@ -1007,21 +1137,25 @@ GESAMT AKS:                            ~€1.680/Monat
 **Nomad-Empfehlung nur wenn:**
 
 1. **Legacy-Modernisierung** mit Mixed Workloads
+
    - Schrittweise Container-Einführung
    - VMs parallel zu Container
    - Zeitdruck für MVP
 
 2. **Startup-Phase** (<20 Mitarbeiter)
+
    - Fokus auf Time-to-Market
    - Kleines Team ohne K8s-Expertise
    - MVP-Strategie mit späterer Migration
 
 3. **Edge/IoT-Computing**
+
    - Ressourcen-limitierte Umgebungen
    - Viele kleine Deployments
    - Offline-Fähigkeit wichtig
 
 4. **Batch/Data-Processing-Fokus**
+
    - Primär kurzlebige Jobs
    - Wenig Microservices
    - Scheduling-Performance wichtig
@@ -1032,6 +1166,7 @@ GESAMT AKS:                            ~€1.680/Monat
    - Einfachheit wichtiger als Features
 
 **Explizite Ausschluss-Kriterien für Nomad:**
+
 - ❌ Regulierte Industrien (Banking, Healthcare, Public Sector)
 - ❌ Große Enterprise (>100 Entwickler)
 - ❌ Cloud-Native Microservices-Architektur
@@ -1092,11 +1227,13 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Nächste Schritte
 
 1. **Kurzfristig (1-3 Monate)**:
+
    - Entscheidung: Nomad ins Portfolio?
    - 1-2 Berater schulen
    - Internes Pilot-Projekt
 
 2. **Mittelfristig (3-6 Monate)**:
+
    - Use-Case-Katalog erstellen
    - Marketing-Material
    - Erstes Kundenprojekt (klein)
@@ -1113,24 +1250,25 @@ GESAMT AKS:                            ~€1.680/Monat
 ### Weiterführende Ressourcen
 
 **Nomad:**
+
 - [HashiCorp Nomad Docs](https://developer.hashicorp.com/nomad)
 - [Nomad Learn Tutorials](https://learn.hashicorp.com/nomad)
 - [HCP Nomad](https://cloud.hashicorp.com/products/nomad)
+- [Nomad for Kubernetes Practitioners](Nomad_for_Kubernetes_Practitioners_Summary.md)
 
 **Kubernetes:**
+
 - [Kubernetes Docs](https://kubernetes.io/docs/)
 - [CNCF Landscape](https://landscape.cncf.io/)
 - [AKS Best Practices](https://learn.microsoft.com/en-us/azure/aks/)
 
 **Vergleiche:**
+
 - [Nomad vs K8s (HashiCorp)](https://www.nomadproject.io/intro/vs/kubernetes)
 - [CNCF Survey 2024](https://www.cncf.io/reports/cncf-annual-survey-2024/)
 
-### Demo-Repository
-
-**GitHub:** [github.com/[username]/nomad-cluster](https://github.com/[username]/nomad-cluster)
-
 **Features:**
+
 - Terraform IaC für Azure
 - Ansible Automation
 - GitHub Actions CI/CD
@@ -1141,4 +1279,4 @@ GESAMT AKS:                            ~€1.680/Monat
 
 **Ende der Präsentation**
 
-*Fragen & Diskussion*
+_Fragen & Diskussion_

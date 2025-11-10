@@ -58,7 +58,10 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
 - **Anzahl**: 2+ Nodes (via VMSS Auto-Scaling)
 - **OS**: Ubuntu 22.04 LTS
 - **Managed Disks**: Standard SSD (E10: 128 GB)
-- **Public IP**: Optional (nur für Testing)
+- **Networking**: 
+  - Private IPs nur (10.0.10.x)
+  - Kein direkter Internet-Zugriff
+  - Kommunikation über VNet intern
 - **Scaling**: Azure Virtual Machine Scale Sets (VMSS)
 
 #### Consul (Optional, aber empfohlen)
@@ -71,17 +74,19 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
 **Weggelassen**:
 
 - ❌ Availability Zones (Single Zone)
-- ❌ Load Balancer (Direkt auf Server IP)
-- ❌ Separate Subnets
-- ❌ Azure Bastion (Public SSH)
+- ❌ Separate Subnets (ein Cluster Subnet)
+- ❌ Azure Bastion (SSH via Load Balancer NAT)
+- ❌ NAT Gateway (Clients ohne Internet-Zugriff)
 
-**Beibehalten**:
+**Implementiert**:
 
 - ✅ Infrastructure as Code (Terraform)
 - ✅ Configuration Management (Ansible)
 - ✅ Consul für Service Discovery
 - ✅ Managed Disks
 - ✅ NSG für Basic Security
+- ✅ Load Balancer mit NAT Rules
+- ✅ Private IPs für alle VMs
 - ✅ Key Vault (für Secrets Management)
 - ✅ Multi-Server HA (3 Server für Consensus)
 - ✅ VMSS Auto-Scaling für Client Nodes
