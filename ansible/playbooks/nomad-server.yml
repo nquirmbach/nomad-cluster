@@ -3,8 +3,8 @@
   hosts: nomad_servers
   become: yes
   vars:
-    nomad_version: "{{ nomad_version | default('1.6.0') }}"
-    datacenter: "{{ datacenter | default('dc1') }}"
+    nomad_version: "1.6.0"
+    datacenter: "dc1"
   tasks:
     - name: Download Nomad
       get_url:

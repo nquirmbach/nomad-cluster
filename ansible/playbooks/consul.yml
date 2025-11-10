@@ -3,8 +3,8 @@
   hosts: all
   become: yes
   vars:
-    consul_version: "{{ consul_version | default('1.16.0') }}"
-    datacenter: "{{ datacenter | default('dc1') }}"
+    consul_version: "1.16.0"
+    datacenter: "dc1"
   tasks:
     - name: Download Consul
       get_url:
