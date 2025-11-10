@@ -230,7 +230,11 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
           
           client {
             enabled = true
-            servers = ["${azurerm_public_ip.lb.ip_address}:4647"]
+            servers = [
+              "${azurerm_linux_virtual_machine.nomad_server[0].private_ip_address}:4647",
+              "${azurerm_linux_virtual_machine.nomad_server[1].private_ip_address}:4647",
+              "${azurerm_linux_virtual_machine.nomad_server[2].private_ip_address}:4647"
+            ]
             network_interface = "eth0"
           }
           

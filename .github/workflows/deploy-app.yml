@@ -155,7 +155,7 @@ jobs:
           # Get the Load Balancer IP
           PREFIX="nomad-cluster"
           ENV="${{ github.event.inputs.environment || 'dev' }}"
-          LB_NAME="${PREFIX}-${ENV}-lb"
+          LB_NAME="nmdclstr-${ENV}-lb"
           LB_IP=$(az network public-ip show -g ${{ env.RESOURCE_GROUP }} --name "${LB_NAME}-ip" --query ipAddress -o tsv)
 
           if [ -z "$LB_IP" ]; then
