@@ -2,6 +2,7 @@
 - name: Nomad Server Setup
   hosts: nomad_servers
   become: yes
+  gather_facts: yes
   vars:
     nomad_version: "1.6.0"
     datacenter: "dc1"
@@ -31,7 +32,7 @@
 
     - name: Get server IPs
       set_fact:
-        server_ips: "{{ groups['nomad_servers'] | map('extract', hostvars, ['ansible_host']) | list }}"
+        server_ips: "{{ groups['nomad_servers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
 
     - name: Create Nomad server config
       template:

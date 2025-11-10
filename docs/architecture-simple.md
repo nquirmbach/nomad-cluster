@@ -63,6 +63,8 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
   - Kein direkter Internet-Zugriff
   - Kommunikation über VNet intern
 - **Scaling**: Azure Virtual Machine Scale Sets (VMSS)
+  - Standard Azure VMSS Auto-Scaling (CPU-basiert)
+  - Erweiterbar mit [Nomad Autoscaler für Azure VMSS](https://developer.hashicorp.com/nomad/tools/autoscaling/plugins/target/azure-vmss) für workload-basiertes Scaling
 - **Konfiguration**: Cloud-Init (automatisch beim Boot)
   - Installiert Nomad Client
   - Konfiguriert Verbindung zu Servern

@@ -9,8 +9,8 @@ bind_addr = "{{ ansible_default_ipv4.address }}"
 client_addr = "0.0.0.0"
 
 retry_join = [
-  {% for ip in server_ips %}
-  "{{ ip }}"{% if not loop.last %},{% endif %}
+  {% for host in groups['nomad_servers'] %}
+  "{{ hostvars[host]['ansible_host'] }}"{% if not loop.last %},{% endif %}
   {% endfor %}
 ]
 

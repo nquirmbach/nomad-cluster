@@ -2,9 +2,12 @@
 - name: Consul Setup
   hosts: all
   become: yes
+  gather_facts: yes
   vars:
     consul_version: "1.16.0"
     datacenter: "dc1"
+    # Verwende private IPs für Consul Server-Kommunikation
+    server_ips: "{{ groups['nomad_servers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
   tasks:
     - name: Download Consul
       get_url:
