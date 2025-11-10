@@ -329,7 +329,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
           log "Configuring Docker"
           systemctl enable docker
           systemctl start docker
-          usermod -aG docker ubuntu
+          usermod -aG docker azureuser
           
           # Docker-Daemon konfigurieren
           log "Setting up Docker daemon configuration"
@@ -448,12 +448,12 @@ resource "azurerm_virtual_machine_scale_set_extension" "client_monitoring" {
 }
 
 resource "azurerm_virtual_machine_extension" "server_monitoring" {
-  count                = var.server_count
-  name                 = "VMInsights"
-  virtual_machine_id   = azurerm_linux_virtual_machine.nomad_server[count.index].id
-  publisher            = "Microsoft.Azure.Monitor"
-  type                 = "AzureMonitorLinuxAgent"
-  type_handler_version = "1.0"
+  count                      = var.server_count
+  name                       = "VMInsights"
+  virtual_machine_id         = azurerm_linux_virtual_machine.nomad_server[count.index].id
+  publisher                  = "Microsoft.Azure.Monitor"
+  type                       = "AzureMonitorLinuxAgent"
+  type_handler_version       = "1.0"
   auto_upgrade_minor_version = true
 }
 
