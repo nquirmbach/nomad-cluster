@@ -12,6 +12,10 @@ job "traefik" {
       port "admin" {
         static = 8081
       }
+      # Zusätzliche Ports für interne Kommunikation
+      port "ping" {
+        static = 8082
+      }
     }
 
     service {
@@ -48,14 +52,17 @@ job "traefik" {
 
       config {
         image = "traefik:v2.10"
-        ports = ["http", "admin"]
+        ports = ["http", "admin", "ping"]
 
         # Direkte Konfiguration über Kommandozeilenargumente statt Konfigurationsdateien
         args = [
           "--entrypoints.web.address=:8080",
           "--entrypoints.dashboard.address=:8081",
+          "--entrypoints.ping.address=:8082",
+          "--ping.entrypoint=ping",
           "--api.dashboard=true",
           "--api.insecure=true",
+          "--api.entrypoint=dashboard",
           "--providers.consulcatalog=true",
           "--providers.consulcatalog.prefix=traefik",
           "--providers.consulcatalog.exposedByDefault=false",
@@ -83,6 +90,7 @@ job "traefik" {
     rule = "PathPrefix(`/`)"
     service = "server-info-svc"
     entryPoints = ["web"]
+    priority = 1  # Niedrige Priorität, damit spezifischere Routen Vorrang haben
 EOF
 
         destination = "local/dynamic_conf.toml"

@@ -114,6 +114,26 @@ write_files:
         publish_node_metrics = true
         prometheus_metrics = true
       }
+      
+      # Consul-Integration
+      consul {
+        # Adresse des lokalen Consul-Agenten
+        address = "127.0.0.1:8500"
+        
+        # Service-Namen für Nomad in Consul
+        server_service_name = "nomad"
+        client_service_name = "nomad-client"
+        
+        # Automatische Registrierung und Service-Discovery
+        auto_advertise = true
+        server_auto_join = false
+        client_auto_join = true
+        
+        # Service-Tags für bessere Identifikation
+        tags {
+          client = ["client", "${datacenter}", "v1"]
+        }
+      }
     
   # Nomad systemd service
   - path: /etc/systemd/system/nomad-client.service

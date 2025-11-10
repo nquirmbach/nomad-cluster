@@ -23,12 +23,26 @@ client {
 }
 
 consul {
+  # Adresse des lokalen Consul-Agenten
   address = "127.0.0.1:8500"
+  
+  # Service-Namen für Nomad in Consul
   server_service_name = "nomad"
   client_service_name = "nomad-client"
+  
+  # Automatische Registrierung und Service-Discovery
   auto_advertise = true
   server_auto_join = true
   client_auto_join = true
+
+  # Service-Tags für bessere Identifikation
+  tags {
+    server = ["server", "{{ datacenter }}", "v1"]
+    client = ["client", "{{ datacenter }}", "v1"]
+  }
+  
+  # Health-Check-Konfiguration
+  checks_use_advertise = true
 }
 
 autopilot {
@@ -59,4 +73,8 @@ ports {
   http = 4646
   rpc  = 4647
   serf = 4648
+}
+
+acl {
+  enabled = true
 }
