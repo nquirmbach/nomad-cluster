@@ -179,10 +179,10 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          mv ssh_key.pem ~/.ssh/id_rsa
+          mv terraform/ssh_key.pem ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          for IP in $(grep -oP 'ansible_host=\K[^ ]+' inventory.ini); do
+          for IP in $(grep -oP 'ansible_host=\K[^ ]+' ansible/inventory.ini); do
             ssh-keyscan -H $IP >> ~/.ssh/known_hosts 2>/dev/null || true
           done
 
