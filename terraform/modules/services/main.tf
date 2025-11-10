@@ -74,6 +74,6 @@ resource "random_id" "consul_encrypt" {
 # Consul-Verschlüsselungsschlüssel im Key Vault speichern
 resource "azurerm_key_vault_secret" "consul_encrypt" {
   name         = "consul-encrypt-key"
-  value        = base64encode(random_id.consul_encrypt.b64_std)
+  value        = random_id.consul_encrypt.b64_std
   key_vault_id = azurerm_key_vault.nomad.id
 }

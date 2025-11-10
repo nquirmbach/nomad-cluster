@@ -13,8 +13,4 @@ variable "tags" {
   type        = map(string)
 }
 
-variable "save_local_keys" {
-  description = "Ob die SSH-Schlüssel lokal gespeichert werden sollen"
-  type        = bool
-  default     = false
-}
+# Variable save_local_keys wurde entfernt, da keine lokalen Dateien mehr erstellt werden

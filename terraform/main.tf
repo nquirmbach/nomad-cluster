@@ -49,7 +49,6 @@ module "ssh" {
   prefix          = local.env_prefix
   key_vault_id    = module.services.key_vault_id
   tags            = merge(var.tags, { Workspace = local.workspace })
-  save_local_keys = true
   
   depends_on = [module.services]
 }
