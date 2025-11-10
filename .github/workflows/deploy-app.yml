@@ -17,7 +17,7 @@ on:
 
   push:
     branches: [main]
-    paths: ["jobs/**", "app/**", ".github/workflows/deploy-app.yml"]
+    paths: ["jobs/web.nomad", "app/**", ".github/workflows/deploy-app.yml"]
 
 jobs:
   build:
