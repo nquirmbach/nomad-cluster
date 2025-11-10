@@ -64,6 +64,8 @@ module "compute" {
   subnet_id           = module.network.cluster_subnet_id
   server_nsg_id       = module.network.server_nsg_id
   client_nsg_id       = module.network.client_nsg_id
+  bastion_subnet_id   = module.network.bastion_subnet_id
+  bastion_nsg_id      = module.network.bastion_nsg_id
   
   server_count     = var.server_count
   client_count     = var.client_count
@@ -78,6 +80,9 @@ module "compute" {
   nomad_version  = var.nomad_version
   consul_version = var.consul_version
   acr_id         = module.services.acr_id
+  acr_login_server    = module.services.acr_login_server
+  acr_admin_username  = module.services.acr_admin_username
+  acr_admin_password  = module.services.acr_admin_password
   
   tags = merge(var.tags, { Workspace = local.workspace })
   

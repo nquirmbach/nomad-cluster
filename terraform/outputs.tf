@@ -100,3 +100,14 @@ output "ansible_inventory" {
   description = "Ansible Inventory für Nomad Cluster"
   value       = module.compute.ansible_inventory
 }
+
+# Bastion Host Outputs
+output "bastion_public_ip" {
+  description = "Public IP des Bastion Hosts"
+  value       = module.compute.bastion_public_ip
+}
+
+output "bastion_ssh_command" {
+  description = "SSH Befehl zum Verbinden mit dem Bastion Host"
+  value       = "ssh azureuser@${module.compute.bastion_public_ip}"
+}

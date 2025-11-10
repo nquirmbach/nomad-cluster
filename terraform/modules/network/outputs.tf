@@ -22,3 +22,13 @@ output "client_nsg_id" {
   description = "ID der Client Network Security Group"
   value       = azurerm_network_security_group.nomad_client.id
 }
+
+output "bastion_subnet_id" {
+  description = "ID des Bastion Subnets"
+  value       = azurerm_subnet.bastion.id
+}
+
+output "bastion_nsg_id" {
+  description = "ID der Bastion Network Security Group"
+  value       = azurerm_network_security_group.bastion.id
+}

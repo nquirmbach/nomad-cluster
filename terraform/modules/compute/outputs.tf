@@ -39,6 +39,9 @@ ${azurerm_linux_virtual_machine.nomad_server[i].name} ansible_host=${azurerm_pub
 [nomad_clients]
 # Clients werden via Cloud-Init konfiguriert
 
+[bastion]
+${azurerm_linux_virtual_machine.bastion.name} ansible_host=${azurerm_public_ip.bastion.ip_address}
+
 [all:vars]
 ansible_user=azureuser
 ansible_ssh_private_key_file=~/.ssh/id_rsa
@@ -52,4 +55,19 @@ EOT
 output "ansible_inventory" {
   description = "Ansible Inventory für Nomad Cluster"
   value       = local.inventory
+}
+
+output "bastion_public_ip" {
+  description = "Public IP des Bastion Hosts"
+  value       = azurerm_public_ip.bastion.ip_address
+}
+
+output "bastion_private_ip" {
+  description = "Private IP des Bastion Hosts"
+  value       = azurerm_network_interface.bastion.private_ip_address
+}
+
+output "bastion_fqdn" {
+  description = "FQDN des Bastion Hosts"
+  value       = azurerm_public_ip.bastion.fqdn
 }

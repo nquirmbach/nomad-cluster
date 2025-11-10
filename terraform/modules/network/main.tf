@@ -13,6 +13,13 @@ resource "azurerm_subnet" "cluster" {
   address_prefixes     = ["10.0.10.0/24"]
 }
 
+resource "azurerm_subnet" "bastion" {
+  name                 = "${var.prefix}-bastion-subnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.nomad.name
+  address_prefixes     = ["10.0.20.0/24"]
+}
+
 resource "azurerm_network_security_group" "nomad_server" {
   name                = "${var.prefix}-server-nsg"
   location            = var.location
@@ -117,7 +124,7 @@ resource "azurerm_network_security_group" "nomad_client" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
-  # SSH
+  # SSH only from bastion subnet
   security_rule {
     name                       = "SSH"
     priority                   = 100
@@ -126,7 +133,7 @@ resource "azurerm_network_security_group" "nomad_client" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefixes    = var.allowed_ssh_ips
+    source_address_prefix      = "10.0.20.0/24"
     destination_address_prefix = "*"
   }
 
@@ -180,5 +187,38 @@ resource "azurerm_network_security_group" "nomad_client" {
     destination_port_range     = "30000-32000"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_network_security_group" "bastion" {
+  name                = "${var.prefix}-bastion-nsg"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+
+  # SSH from allowed IPs
+  security_rule {
+    name                       = "SSH"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefixes    = var.allowed_ssh_ips
+    destination_address_prefix = "*"
+  }
+
+  # Allow outbound SSH to VNet (for connecting to clients)
+  security_rule {
+    name                       = "SSHOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "VirtualNetwork"
   }
 }

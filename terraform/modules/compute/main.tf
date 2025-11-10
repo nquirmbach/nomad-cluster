@@ -245,9 +245,6 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
                 enabled = true
               }
               extra_labels = ["job_name", "job_id", "task_group", "task_name", "namespace", "node_name"]
-              auth {
-                helper = "acr-login"
-              }
             }
           }
           
@@ -256,6 +253,12 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
           
           log_level = "INFO"
           log_file  = "/var/log/nomad.log"
+          
+          telemetry {
+            publish_allocation_metrics = true
+            publish_node_metrics = true
+            prometheus_metrics = true
+          }
         
       - path: /etc/systemd/system/nomad-client.service
         content: |
@@ -295,17 +298,12 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
       - systemctl enable docker
       - systemctl start docker
       - usermod -aG docker ubuntu
-      - echo "Installing Azure CLI for ACR authentication..."
-      - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-      - echo "Creating Docker credential helper for ACR..."
-      - mkdir -p /usr/local/bin
-      - echo '#!/bin/bash
-az acr login --name "$1" --expose-token | jq -r ".accessToken"' > /usr/local/bin/docker-credential-acr-login
-      - chmod +x /usr/local/bin/docker-credential-acr-login
-      - echo "Configuring Docker for ACR authentication..."
+      - echo "Configuring Docker daemon..."
       - mkdir -p /etc/docker
       - echo '{"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "3"}}' > /etc/docker/daemon.json
       - systemctl restart docker
+      - echo "Logging into ACR with admin credentials..."
+      - docker login ${var.acr_login_server} -u ${var.acr_admin_username} -p ${var.acr_admin_password}
       - echo "Enabling and starting Nomad client..."
       - systemctl daemon-reload
       - systemctl enable nomad-client
@@ -395,6 +393,115 @@ resource "azurerm_virtual_machine_extension" "server_monitoring" {
   count                = var.server_count
   name                 = "VMInsights"
   virtual_machine_id   = azurerm_linux_virtual_machine.nomad_server[count.index].id
+  publisher            = "Microsoft.Azure.Monitor"
+  type                 = "AzureMonitorLinuxAgent"
+  type_handler_version = "1.0"
+  auto_upgrade_minor_version = true
+}
+
+# Bastion Host Public IP
+resource "azurerm_public_ip" "bastion" {
+  name                = "${var.prefix}-bastion-ip"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = var.tags
+}
+
+# Bastion Host NIC
+resource "azurerm_network_interface" "bastion" {
+  name                = "${var.prefix}-bastion-nic"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = var.bastion_subnet_id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.bastion.id
+  }
+}
+
+# NSG Association für Bastion NIC
+resource "azurerm_network_interface_security_group_association" "bastion" {
+  network_interface_id      = azurerm_network_interface.bastion.id
+  network_security_group_id = var.bastion_nsg_id
+}
+
+# Bastion Host VM
+resource "azurerm_linux_virtual_machine" "bastion" {
+  name                  = "${var.prefix}-bastion"
+  location              = var.location
+  resource_group_name   = var.resource_group_name
+  network_interface_ids = [azurerm_network_interface.bastion.id]
+  size                  = var.bastion_vm_size
+  admin_username        = "azureuser"
+  tags                  = var.tags
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = var.admin_ssh_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    disk_size_gb         = 30
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  boot_diagnostics {
+    storage_account_uri = null
+  }
+
+  # Cloud-Init für Bastion-Konfiguration
+  custom_data = base64encode(<<-EOF
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - unzip
+      - wget
+      - curl
+      - jq
+      - tmux
+      - htop
+      - sshpass
+
+    write_files:
+      - path: /etc/motd
+        content: |
+          *************************************************************
+          *                                                           *
+          *                     BASTION HOST                          *
+          *                                                           *
+          * This system is for authorized users only.                 *
+          * All connections are monitored and recorded.               *
+          *                                                           *
+          *************************************************************
+
+    runcmd:
+      - echo "Bastion host setup completed!"
+  EOF
+  )
+}
+
+# VM Insights für Bastion Monitoring
+resource "azurerm_virtual_machine_extension" "bastion_monitoring" {
+  name                 = "VMInsights"
+  virtual_machine_id   = azurerm_linux_virtual_machine.bastion.id
   publisher            = "Microsoft.Azure.Monitor"
   type                 = "AzureMonitorLinuxAgent"
   type_handler_version = "1.0"

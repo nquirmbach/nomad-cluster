@@ -4,21 +4,55 @@ Diese Dokumentation beschreibt, wie die Azure Container Registry (ACR) mit dem N
 
 ## Überblick
 
-Die Integration ermöglicht es Nomad Client Nodes, Container-Images aus der privaten Azure Container Registry zu pullen, ohne explizite Credentials zu benötigen.
+Die Integration ermöglicht es Nomad Client Nodes, Container-Images aus der privaten Azure Container Registry zu pullen.
 
-## Komponenten
+## Authentifizierungsmethoden
 
+### Methode 1: Admin-Credentials (aktuell aktiv)
+
+Diese Methode ist für Demo- und Entwicklungsumgebungen geeignet.
+
+**Vorteile:**
+- Einfache Einrichtung
+- Keine komplexe Konfiguration erforderlich
+- Funktioniert sofort nach dem Deployment
+
+**Nachteile:**
+- Weniger sicher als Managed Identity
+- Nicht empfohlen für Produktionsumgebungen
+
+**Komponenten:**
 1. **Azure Container Registry (ACR)**
    - Private Registry für Container-Images
+   - Admin-Credentials aktiviert (`admin_enabled = true`)
    - Erstellt im `services`-Modul
 
-2. **Managed Identity für VMSS**
+2. **Docker Login auf Client Nodes**
+   - Automatisches `docker login` beim Hochfahren
+   - Verwendet ACR Admin-Credentials
+   - Konfiguriert via Cloud-Init
+
+### Methode 2: Managed Identity (für Produktion)
+
+Diese Methode ist für Produktionsumgebungen empfohlen, aber komplexer einzurichten.
+
+**Vorteile:**
+- Sicherer als Admin-Credentials
+- Keine Credentials im Code oder in der Konfiguration
+- Automatische Rotation der Tokens
+
+**Nachteile:**
+- Komplexere Einrichtung
+- Erfordert zusätzliche Azure-Konfiguration
+
+**Komponenten:**
+1. **Managed Identity für VMSS**
    - System-assigned Identity für Nomad Client VMSS
    - RBAC-Rolle "AcrPull" für Zugriff auf ACR
 
-3. **Docker-Treiber in Nomad**
-   - Installiert via Cloud-Init auf Client Nodes
-   - Konfiguriert für ACR-Authentifizierung
+2. **Docker-Credential-Helper**
+   - Verwendet Azure CLI für Authentifizierung
+   - Automatische Token-Verwaltung
 
 ## Konfiguration
 
@@ -37,9 +71,9 @@ Die ACR-Integration wird in folgenden Dateien konfiguriert:
 - `terraform/main.tf`:
   - ACR ID vom Services-Modul zum Compute-Modul übergeben
 
-### Nomad Client Konfiguration
+### Nomad Client Konfiguration (Admin-Credentials)
 
-Die Nomad Client Konfiguration enthält:
+Die Nomad Client Konfiguration ist einfach gehalten:
 
 ```hcl
 plugin "docker" {
@@ -48,12 +82,11 @@ plugin "docker" {
     volumes {
       enabled = true
     }
-    auth {
-      helper = "acr-env"
-    }
   }
 }
 ```
+
+Die Authentifizierung erfolgt durch das automatische `docker login` beim Hochfahren der Clients.
 
 ## Verwendung in Nomad Jobs
 
@@ -65,14 +98,12 @@ task "example" {
   
   config {
     image = "${ACR_NAME}.azurecr.io/my-image:latest"
-    auth {
-      helper = "acr-env"
-    }
+    ports = ["http"]
   }
 }
 ```
 
-Siehe `examples/acr-job.nomad` für ein vollständiges Beispiel.
+**Wichtig:** Mit der Admin-Credentials-Methode ist kein `auth`-Block im Job erforderlich, da die Authentifizierung bereits auf Host-Ebene erfolgt ist.
 
 ## Troubleshooting
 

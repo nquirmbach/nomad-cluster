@@ -210,7 +210,47 @@ nomad agent -config=/etc/nomad.d -validate
    - Verwende bedingte Logik, um Exit-Code 1 als erfolgreich zu behandeln
    - Oder verwende `|| true` am Ende des Befehls, um Fehler zu ignorieren
 
-### ACR-Authentifizierung mit Managed Identity
+### ACR-Authentifizierung
+
+#### Methode 1: Admin-Credentials (empfohlen für Demo/Dev)
+
+1. Konfiguration:
+   - Die ACR ist mit aktivierten Admin-Credentials konfiguriert
+   - Die Credentials werden automatisch beim Hochfahren der Clients verwendet
+   - Die Clients führen `docker login` mit den Admin-Credentials aus
+
+2. Terraform-Konfiguration:
+   ```hcl
+   resource "azurerm_container_registry" "acr" {
+     name                = replace("${var.prefix}acr", "-", "")
+     resource_group_name = var.resource_group_name
+     location            = var.location
+     sku                 = "Standard"
+     admin_enabled       = true
+     tags                = var.tags
+   }
+   ```
+
+3. Nomad-Job-Konfiguration:
+   - Verwende eine einfache Docker-Konfiguration ohne Auth-Block:
+   ```hcl
+   config {
+     image = "acr-name.azurecr.io/image:tag"
+     ports = ["http"]
+   }
+   ```
+
+4. Fehlersuche:
+   - Überprüfe, ob Docker erfolgreich eingeloggt ist:
+   ```bash
+   docker info | grep -A 5 "Registry"
+   ```
+   - Teste manuell das Pullen eines Images:
+   ```bash
+   docker pull <acr-name>.azurecr.io/<image>:<tag>
+   ```
+
+#### Methode 2: Managed Identity (für Produktion)
 
 1. Problem:
    - Fehler: `Driver Failure: Failed to find docker auth for repo "acr-name.azurecr.io/image": exec: "docker-credential-acr-env": executable file not found in $PATH`
@@ -239,23 +279,63 @@ nomad agent -config=/etc/nomad.d -validate
    }
    ```
 
-4. Nomad-Job-Konfiguration:
-   - Verwende eine einfache Docker-Konfiguration ohne Auth-Block:
-   ```hcl
-   config {
-     image = "acr-name.azurecr.io/image:tag"
-     ports = ["http"]
-   }
+### Nomad-Clients erscheinen nicht im Dashboard
+
+1. Problem:
+   - Nomad-Clients erscheinen nicht im Dashboard
+   - Server und Clients können sich nicht verbinden
+
+2. Mögliche Ursachen:
+   - Netzwerkprobleme zwischen Clients und Servern
+   - Falsche Server-Adressen in der Client-Konfiguration
+   - Firewall blockiert die Verbindung
+   - Fehlerhafte Nomad-Konfiguration
+
+3. Netzwerkverbindung prüfen:
+   ```bash
+   # Prüfe, ob die Clients die Server erreichen können
+   nc -zv <server-ip> 4647
+   
+   # Prüfe die Netzwerkschnittstellen
+   ip addr
+   
+   # Prüfe die Routing-Tabelle
+   route -n
    ```
 
-5. Fehlersuche:
-   - Überprüfe die Nomad-Client-Logs:
+4. Nomad-Client-Konfiguration prüfen:
    ```bash
-   sudo journalctl -u nomad-client -f
+   # Prüfe die Client-Konfiguration
+   cat /etc/nomad.d/client.hcl
+   
+   # Prüfe die Server-Adressen
+   grep servers /etc/nomad.d/client.hcl
    ```
-   - Überprüfe die Docker-Logs:
+
+5. Nomad-Client-Dienst prüfen:
    ```bash
-   sudo journalctl -u docker -f
+   # Prüfe den Status des Nomad-Client-Dienstes
+   systemctl status nomad-client
+   
+   # Prüfe die Logs
+   journalctl -u nomad-client -n 100
+   ```
+
+6. Firewall-Regeln prüfen:
+   ```bash
+   # Prüfe die Firewall-Regeln
+   sudo iptables -L
+   
+   # Prüfe die Sicherheitsgruppen in Azure
+   ```
+
+7. Debug-Skript ausführen:
+   ```bash
+   # Führe das Debug-Skript aus
+   /opt/scripts/debug-nomad.sh > /tmp/nomad-debug.log
+   
+   # Analysiere die Ausgabe
+   cat /tmp/nomad-debug.log
    ```
 
 ## Nützliche Ressourcen

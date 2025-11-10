@@ -48,6 +48,12 @@ variable "client_vm_size" {
   type        = string
 }
 
+variable "bastion_vm_size" {
+  description = "VM Größe für Bastion Host"
+  type        = string
+  default     = "Standard_B1s"
+}
+
 variable "admin_ssh_key" {
   description = "SSH Public Key für VM-Zugriff"
   type        = string
@@ -58,6 +64,11 @@ variable "subnet_id" {
   type        = string
 }
 
+variable "bastion_subnet_id" {
+  description = "ID des Bastion Subnets"
+  type        = string
+}
+
 variable "server_nsg_id" {
   description = "ID der Network Security Group für Server"
   type        = string
@@ -65,6 +76,11 @@ variable "server_nsg_id" {
 
 variable "client_nsg_id" {
   description = "ID der Network Security Group für Clients"
+  type        = string
+}
+
+variable "bastion_nsg_id" {
+  description = "ID der Network Security Group für Bastion Host"
   type        = string
 }
 
@@ -86,4 +102,21 @@ variable "consul_version" {
 variable "acr_id" {
   description = "ID der Azure Container Registry"
   type        = string
+}
+
+variable "acr_login_server" {
+  description = "Login Server der Azure Container Registry"
+  type        = string
+}
+
+variable "acr_admin_username" {
+  description = "Admin Username der Azure Container Registry"
+  type        = string
+  sensitive   = true
+}
+
+variable "acr_admin_password" {
+  description = "Admin Password der Azure Container Registry"
+  type        = string
+  sensitive   = true
 }
