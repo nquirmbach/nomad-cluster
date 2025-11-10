@@ -65,3 +65,15 @@ resource "azurerm_role_assignment" "github_actions_acr_push" {
   role_definition_name = "AcrPush"
   principal_id         = data.azurerm_user_assigned_identity.github_actions[0].principal_id
 }
+
+# Consul Encryption Key generieren (base64-kodierter 32-Byte-Schlüssel)
+resource "random_id" "consul_encrypt" {
+  byte_length = 32
+}
+
+# Consul-Verschlüsselungsschlüssel im Key Vault speichern
+resource "azurerm_key_vault_secret" "consul_encrypt" {
+  name         = "consul-encrypt-key"
+  value        = base64encode(random_id.consul_encrypt.b64_std)
+  key_vault_id = azurerm_key_vault.nomad.id
+}

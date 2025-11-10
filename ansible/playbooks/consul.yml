@@ -8,7 +8,15 @@
     datacenter: "dc1"
     # Verwende private IPs für Consul Server-Kommunikation
     server_ips: "{{ groups['nomad_servers'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list }}"
+    consul_encrypt: "{{ lookup('env', 'CONSUL_ENCRYPT') }}"
   tasks:
+    - name: Ensure consul_encrypt is provided
+      assert:
+        that:
+          - consul_encrypt is string
+          - consul_encrypt | length > 0
+        fail_msg: "CONSUL_ENCRYPT env var must be set to a valid gossip key (e.g. output of 'consul keygen')."
+
     - name: Download Consul
       get_url:
         url: "https://releases.hashicorp.com/consul/{{ consul_version }}/consul_{{ consul_version }}_linux_amd64.zip"
@@ -49,6 +57,6 @@
     - name: Start and enable Consul service
       systemd:
         name: consul
-        state: started
+        state: restarted
         enabled: yes
         daemon_reload: yes

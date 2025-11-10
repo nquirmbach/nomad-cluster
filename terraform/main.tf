@@ -77,6 +77,7 @@ module "compute" {
   datacenter     = var.datacenter
   nomad_version  = var.nomad_version
   consul_version = var.consul_version
+  consul_encrypt = module.services.consul_encrypt
   acr_id         = module.services.acr_id
   acr_login_server    = module.services.acr_login_server
   acr_admin_username  = module.services.acr_admin_username

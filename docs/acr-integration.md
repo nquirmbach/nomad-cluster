@@ -71,22 +71,28 @@ Die ACR-Integration wird in folgenden Dateien konfiguriert:
 - `terraform/main.tf`:
   - ACR ID vom Services-Modul zum Compute-Modul übergeben
 
-### Nomad Client Konfiguration (Admin-Credentials)
+### Nomad client configuration (Admin credentials)
 
-Die Nomad Client Konfiguration ist einfach gehalten:
+With the current demo setup, Docker authentication is configured at the client (host) level and consumed by Nomad's Docker plugin via an auth config file. Minimal plugin configuration:
 
 ```hcl
 plugin "docker" {
   config {
     allow_privileged = true
-    volumes {
-      enabled = true
+    volumes { enabled = true }
+
+    # Use host-level Docker auth (created by cloud-init)
+    auth {
+      config = "/etc/docker/config.json"
     }
   }
 }
 ```
 
-Die Authentifizierung erfolgt durch das automatische `docker login` beim Hochfahren der Clients.
+Notes:
+- `/etc/docker/config.json` must be readable by Nomad: directory `/etc/docker` → 755, file `/etc/docker/config.json` → 644, owner `root:root`.
+- The file is created by cloud-init on each client. Template path: `terraform/modules/compute/templates/nomad-client-cloud-init.yaml.tftpl`.
+- For production, prefer Managed Identity + credential helper instead of admin credentials.
 
 ## Verwendung in Nomad Jobs
 

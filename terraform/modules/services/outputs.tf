@@ -39,3 +39,9 @@ output "acr_admin_password" {
   value       = azurerm_container_registry.acr.admin_password
   sensitive   = true
 }
+
+output "consul_encrypt" {
+  description = "Consul Gossip Encryption Key"
+  value       = azurerm_key_vault_secret.consul_encrypt.value
+  sensitive   = true
+}

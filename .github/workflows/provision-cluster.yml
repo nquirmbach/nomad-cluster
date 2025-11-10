@@ -110,12 +110,15 @@ jobs:
           echo "Generated inventory (Servers only - Clients via Cloud-Init):"
           cat ../ansible/inventory.ini
 
-      - name: Extract SSH Key
+      - name: Extract SSH Key and Consul Encrypt Key
         if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
         working-directory: ./terraform
         run: |
           terraform output -raw ssh_private_key > ssh_key.pem
           chmod 600 ssh_key.pem
+          
+          # Extrahiere den Consul-Verschlüsselungsschlüssel
+          terraform output -raw consul_encrypt > consul_encrypt.key
 
       - name: Upload Artifacts
         if: github.event.inputs.action == 'apply' || github.event.inputs.action == ''
@@ -125,6 +128,7 @@ jobs:
           path: |
             ansible/inventory.ini
             terraform/ssh_key.pem
+            terraform/consul_encrypt.key
           retention-days: 1
 
       - name: Output Provision Summary
@@ -177,6 +181,8 @@ jobs:
       - name: Run Ansible Playbooks
         run: |
           export ANSIBLE_HOST_KEY_CHECKING=False
+          # Setze den Consul-Verschlüsselungsschlüssel als Umgebungsvariable für Ansible
+          export CONSUL_ENCRYPT=$(cat terraform/consul_encrypt.key)
           ansible-playbook -i ansible/inventory.ini ansible/playbooks/site.yml
 
       - name: Azure Login with OIDC

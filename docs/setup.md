@@ -62,6 +62,39 @@ az storage container create \
   --account-name tfstatenomadcluster
 ```
 
+## Client provisioning (cloud-init via templatefile)
+
+This project provisions Nomad clients via cloud-init using a reusable template.
+
+- **Template path**: `terraform/modules/compute/templates/nomad-client-cloud-init.yaml.tftpl`
+- **Terraform usage**:
+  ```hcl
+  custom_data = base64encode(
+    templatefile("${path.module}/templates/nomad-client-cloud-init.yaml.tftpl", {
+      server_ips         = [for s in azurerm_linux_virtual_machine.nomad_server : s.private_ip_address],
+      datacenter         = var.datacenter,
+      nomad_version      = var.nomad_version,
+      acr_login_server   = var.acr_login_server,
+      acr_admin_username = var.acr_admin_username,
+      acr_admin_password = var.acr_admin_password
+    })
+  )
+  ```
+- **Dynamic server list**: The template renders the `client.servers` array using a loop over `server_ips`.
+- **Docker/ACR auth**: The template creates `/etc/docker/config.json` with admin credentials for ACR.
+  - Required permissions: `/etc/docker` → `755`, `/etc/docker/config.json` → `644`, owner `root:root`.
+  - Nomad Docker plugin references the file:
+    ```hcl
+    plugin "docker" {
+      config { auth { config = "/etc/docker/config.json" } }
+    }
+    ```
+- **Service**: `nomad-client` runs as root to access Docker. Verify with:
+  ```bash
+  systemctl status nomad-client
+  nomad node status -self
+  ```
+
 **Hinweis**: Dieser Schritt muss nur einmal durchgeführt werden. Der Storage Account wird von allen Environments (dev, stg, prd) genutzt.
 
 ## 1. Azure-Ressourcen einrichten

@@ -214,6 +214,8 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
     ],
     datacenter         = var.datacenter,
     nomad_version      = var.nomad_version,
+    consul_version     = var.consul_version,
+    consul_encrypt     = var.consul_encrypt,
     acr_login_server   = var.acr_login_server,
     acr_admin_username = var.acr_admin_username,
     acr_admin_password = var.acr_admin_password

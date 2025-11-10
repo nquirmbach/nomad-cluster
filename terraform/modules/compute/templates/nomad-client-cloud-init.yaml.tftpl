@@ -12,6 +12,62 @@ packages:
   - docker.io
 
 write_files:
+  # Consul Client Konfiguration
+  - path: /etc/consul.d/consul.hcl
+    owner: root:root
+    permissions: '0644'
+    content: |
+      datacenter = "${datacenter}"
+      data_dir = "/opt/consul/data"
+      encrypt = "${consul_encrypt}"
+      
+      server = false
+      
+      bind_addr = "{{ GetPrivateIP }}"
+      client_addr = "0.0.0.0"
+      
+      retry_join = [
+%{ for ip in server_ips ~}
+        "${ip}",
+%{ endfor ~}
+      ]
+      
+      ui_config {
+        enabled = true
+      }
+      
+      connect {
+        enabled = true
+      }
+      
+      telemetry {
+        disable_hostname = true
+        prometheus_retention_time = "30s"
+      }
+
+  # Consul systemd service
+  - path: /etc/systemd/system/consul.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Consul Client Agent
+      Documentation=https://www.consul.io/
+      Wants=network-online.target
+      After=network-online.target
+      
+      [Service]
+      User=root
+      Group=root
+      ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d
+      ExecReload=/bin/kill -HUP $MAINPID
+      KillMode=process
+      Restart=on-failure
+      LimitNOFILE=65536
+      
+      [Install]
+      WantedBy=multi-user.target
+
   # Nomad Client Konfiguration
   - path: /etc/nomad.d/client.hcl
     owner: root:root
@@ -106,16 +162,22 @@ runcmd:
   - echo "Nomad client setup starting" > /var/log/nomad-setup.log
 
   # Create directories
-  - mkdir -p /opt/nomad/data /etc/nomad.d /var/log
-  - touch /var/log/nomad.log
-  - chmod 755 /opt/nomad /etc/nomad.d
-  - chmod 644 /var/log/nomad.log
+  - mkdir -p /opt/nomad/data /etc/nomad.d /opt/consul/data /etc/consul.d /var/log
+  - touch /var/log/nomad.log /var/log/consul.log
+  - chmod 755 /opt/nomad /etc/nomad.d /opt/consul /etc/consul.d
+  - chmod 644 /var/log/nomad.log /var/log/consul.log
 
   # Download and install Nomad
   - wget -q https://releases.hashicorp.com/nomad/${nomad_version}/nomad_${nomad_version}_linux_amd64.zip -O /tmp/nomad.zip
   - unzip -o /tmp/nomad.zip -d /usr/local/bin
   - chmod +x /usr/local/bin/nomad
   - rm /tmp/nomad.zip
+
+  # Download and install Consul
+  - wget -q https://releases.hashicorp.com/consul/${consul_version}/consul_${consul_version}_linux_amd64.zip -O /tmp/consul.zip
+  - unzip -o /tmp/consul.zip -d /usr/local/bin
+  - chmod +x /usr/local/bin/consul
+  - rm /tmp/consul.zip
 
   # Configure Docker and ACR auth
   - systemctl enable docker
@@ -134,11 +196,16 @@ runcmd:
   - nomad version >> /var/log/nomad-setup.log 2>&1 || true
   - chmod 644 /etc/nomad.d/client.hcl
 
-  # Start Nomad client service
+  # Start Consul client service
   - systemctl daemon-reload
+  - systemctl enable consul
+  - systemctl start consul
+
+  # Start Nomad client service
   - systemctl enable nomad-client
   - systemctl start nomad-client
 
   # Final status
+  - systemctl is-active --quiet consul && echo "Consul client active" >> /var/log/nomad-setup.log || echo "Consul client not active" >> /var/log/nomad-setup.log
   - systemctl is-active --quiet nomad-client && echo "Nomad client active" >> /var/log/nomad-setup.log || echo "Nomad client not active" >> /var/log/nomad-setup.log
   - echo "Nomad client setup finished" >> /var/log/nomad-setup.log

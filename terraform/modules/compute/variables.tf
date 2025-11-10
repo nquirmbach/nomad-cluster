@@ -83,6 +83,12 @@ variable "consul_version" {
   type        = string
 }
 
+variable "consul_encrypt" {
+  description = "Consul Gossip Encryption Key (output of 'consul keygen')"
+  type        = string
+  sensitive   = true
+}
+
 variable "acr_id" {
   description = "ID der Azure Container Registry"
   type        = string

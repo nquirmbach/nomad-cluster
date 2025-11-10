@@ -116,3 +116,10 @@ output "azure_bastion_access_info" {
   description = "Information zum Zugriff auf VMs über Azure Bastion"
   value       = "Zugriff auf VMs über Azure Portal > Virtual Machines > Connect > Bastion"
 }
+
+# Consul Encrypt Key Output
+output "consul_encrypt" {
+  description = "Consul Gossip Encryption Key"
+  value       = module.services.consul_encrypt
+  sensitive   = true
+}

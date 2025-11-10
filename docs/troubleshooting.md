@@ -498,19 +498,26 @@ nomad agent -config=/etc/nomad.d -validate
 3. Häufige Fehlermeldungen und Lösungen:
 
    a) **Berechtigungsproblem mit Docker-Socket**:
-   ```
-   "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock"
-   ```
-   
-   Lösung:
-   ```bash
-   # Docker-Socket-Berechtigungen ändern
-   sudo chmod 666 /var/run/docker.sock
-   
-   # Oder den Nomad-Benutzer zur Docker-Gruppe hinzufügen
-   sudo usermod -aG docker nomad
-   sudo systemctl restart nomad-client
-   ```
+  ```
+  "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock"
+  ```
+  
+  Empfohlene Lösungen (bevorzugte Reihenfolge):
+  ```bash
+  # Option 1 (empfohlen in diesem Setup): Nomad-Client als root laufen lassen
+  # Prüfen:
+  sed -n '/^\[Service\]/,/^\[Install\]/p' /etc/systemd/system/nomad-client.service
+  # Erwartet: User=root, Group=root
+  sudo systemctl daemon-reload && sudo systemctl restart nomad-client
+
+  # Option 2: Nomad in die docker-Gruppe aufnehmen (wenn nicht als root)
+  sudo usermod -aG docker nomad
+  # Sicherstellen, dass Docker-Socket Gruppe=docker und Modus 660 hat
+  sudo chgrp docker /var/run/docker.sock || true
+  sudo chmod 660 /var/run/docker.sock || true
+  sudo systemctl restart nomad-client
+  ```
+  Hinweis: `chmod 666 /var/run/docker.sock` sollte vermieden werden.
 
    b) **Nomad läuft nicht als Root**:
    ```
@@ -574,6 +581,117 @@ nomad agent -config=/etc/nomad.d -validate
    
    # Überprüfe den Status des Docker-Treibers
    nomad node status -self -verbose | grep -A 10 "Docker Driver"
+   ```
+
+### Consul: "No cluster leader" Fehler
+
+1. Problem:
+   - Die Consul UI zeigt "Error: No cluster leader" an
+   - Consul-Server können keinen Leader wählen
+   - Nomad funktioniert möglicherweise trotzdem, da es einen eigenen Raft-Cluster hat
+
+2. Häufige Ursachen:
+   - Unterschiedliche Gossip-Verschlüsselungsschlüssel auf den Servern
+   - `bootstrap_expect` ist höher als die tatsächliche Anzahl der Server
+   - Server können sich nicht über die konfigurierten Adressen erreichen
+   - Firewall blockiert Consul-Ports (8300, 8301, 8302, 8500, 8502)
+
+3. Diagnose:
+   ```bash
+   # Überprüfe den Status der Consul-Mitglieder
+   consul members
+   
+   # Überprüfe den Raft-Status
+   consul operator raft list-peers
+   
+   # Überprüfe, ob ein Leader vorhanden ist
+   curl -s localhost:8500/v1/status/leader
+   
+   # Überprüfe die Consul-Logs
+   sudo journalctl -u consul -n 200 --no-pager
+   ```
+
+4. Lösungen:
+
+   a) **Unterschiedliche Verschlüsselungsschlüssel**:
+   
+   Wenn in den Logs Fehler wie `handshake error` oder `error decrypting` erscheinen:
+   
+   ```bash
+   # Generiere einen neuen Schlüssel
+   consul keygen
+   
+   # Aktualisiere die Konfiguration auf allen Servern
+   sudo nano /etc/consul.d/consul.hcl
+   # Setze denselben Schlüssel für alle Server:
+   # encrypt = "GEMEINSAMER_SCHLÜSSEL"
+   
+   # Starte Consul auf allen Servern neu
+   sudo systemctl restart consul
+   ```
+   
+   b) **Bootstrap-Erwartung anpassen**:
+   
+   ```bash
+   # Überprüfe die aktuelle bootstrap_expect-Einstellung
+   grep bootstrap_expect /etc/consul.d/consul.hcl
+   
+   # Passe sie an die tatsächliche Anzahl der Server an
+   sudo nano /etc/consul.d/consul.hcl
+   # bootstrap_expect = AKTUELLE_SERVER_ANZAHL
+   
+   # Starte Consul neu
+   sudo systemctl restart consul
+   ```
+   
+   c) **Netzwerkprobleme**:
+   
+   ```bash
+   # Überprüfe die konfigurierten Join-Adressen
+   grep retry_join /etc/consul.d/consul.hcl
+   
+   # Teste die Verbindung zu den anderen Servern
+   nc -zv SERVER_IP 8301
+   
+   # Stelle sicher, dass bind_addr und retry_join im selben Netzwerk sind
+   # bind_addr sollte die private IP sein
+   # retry_join sollte die privaten IPs der anderen Server enthalten
+   ```
+
+5. Terraform-Konfiguration:
+   
+   Stelle sicher, dass in der Terraform-Konfiguration ein gemeinsamer Verschlüsselungsschlüssel verwendet wird:
+   
+   ```hcl
+   # Generiere einen Schlüssel mit 'consul keygen'
+   # Füge ihn als Variable hinzu
+   variable "consul_encrypt" {
+     description = "Consul Gossip Encryption Key"
+     type        = string
+     sensitive   = true
+   }
+   
+   # Übergebe ihn an das Cloud-Init-Template
+   custom_data = templatefile("...", {
+     # ...
+     consul_encrypt = var.consul_encrypt
+     # ...
+   })
+   ```
+
+6. Ansible-Konfiguration:
+   
+   ```yaml
+   # Verwende eine Umgebungsvariable für den Schlüssel
+   vars:
+     consul_encrypt: "{{ lookup('env', 'CONSUL_ENCRYPT') }}"
+   
+   # Stelle sicher, dass der Schlüssel vorhanden ist
+   - name: Ensure consul_encrypt is provided
+     assert:
+       that:
+         - consul_encrypt is string
+         - consul_encrypt | length > 0
    ```
 
 ## Nützliche Ressourcen
