@@ -32,6 +32,9 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       image_digest: ${{ steps.docker_build.outputs.digest }}
       acr_login_server: ${{ steps.acr.outputs.login_server }}
@@ -73,15 +76,11 @@ jobs:
       - name: Get ACR Details
         id: acr
         run: |
+          # Nur den ACR Login Server ermitteln, keine Credentials nötig dank Managed Identity
           ACR_LOGIN_SERVER=$(az acr show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query loginServer -o tsv)
-          ACR_USERNAME=$(az acr credential show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query username -o tsv)
-          ACR_PASSWORD=$(az acr credential show -n ${{ env.ACR_NAME }} -g ${{ env.RESOURCE_GROUP }} --query "passwords[0].value" -o tsv)
-
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
-          echo "ACR_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
-          echo "ACR_PASSWORD=$ACR_PASSWORD" >> $GITHUB_ENV
-          echo "::add-mask::$ACR_PASSWORD"
           echo "login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
+          echo "Using ACR: $ACR_LOGIN_SERVER with Managed Identity authentication"
 
       - name: Set Image Tag
         id: set_image_tag
@@ -95,12 +94,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_LOGIN_SERVER }}
-          username: ${{ env.ACR_USERNAME }}
-          password: ${{ env.ACR_PASSWORD }}
+      - name: Login to ACR with Managed Identity
+        run: |
+          # Login to ACR using the Azure CLI (uses the current Azure identity)
+          az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build and Push Docker Image
         if: inputs.app_path != ''
