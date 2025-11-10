@@ -56,53 +56,36 @@ job "traefik" {
           "--entrypoints.dashboard.address=:8081",
           "--api.dashboard=true",
           "--api.insecure=true",
-          "--providers.file.directory=/local/config",
-          "--providers.file.watch=true",
+          "--providers.consulcatalog=true",
+          "--providers.consulcatalog.prefix=traefik",
+          "--providers.consulcatalog.exposedByDefault=false",
+          "--providers.consulcatalog.endpoint.address=127.0.0.1:8500",
+          "--providers.file.filename=/local/dynamic_conf.toml",
           "--log.level=DEBUG"
         ]
       }
 
-      # Erstelle ein Verzeichnis für die Traefik-Konfiguration
-      template {
-        data = ""
-        destination = "local/config/.keep"
-      }
+      # Kein leeres Template mehr notwendig
 
-      # Einfache Konfiguration für den Server-Info-Service
+      # Zusätzliche Konfiguration für Traefik (Middlewares)
       template {
         data = <<EOF
 # Dynamische Konfiguration für Traefik
 
-# Definiere einen http Service für die Server-Info App
-[http.services]
-  [http.services.server-info-svc]
-    [http.services.server-info-svc.loadBalancer]
-      # Hardcoded URL für den Server-Info-Service
-      # In einer realen Umgebung würde man hier Service-Discovery verwenden
-      [[http.services.server-info-svc.loadBalancer.servers]]
-        url = "http://127.0.0.1:8080"
+# Middleware zum Entfernen des Pfad-Präfixes
+[http.middlewares]
+  [http.middlewares.strip-server-info.stripPrefix]
+    prefixes = ["/server-info"]
 
-# Router für die Server-Info App
+# Catch-All Router für die Startseite
 [http.routers]
-  [http.routers.server-info]
-    rule = "PathPrefix(`/server-info`)"
-    service = "server-info-svc"
-    entryPoints = ["web"]
-    middlewares = ["server-info-stripprefix"]
-    
-  # Catch-All Router für alle anderen Anfragen
   [http.routers.catchall]
     rule = "PathPrefix(`/`)"
     service = "server-info-svc"
     entryPoints = ["web"]
-
-# Middleware zum Entfernen des Pfad-Präfixes
-[http.middlewares]
-  [http.middlewares.server-info-stripprefix.stripPrefix]
-    prefixes = ["/server-info"]
 EOF
 
-        destination = "local/config/server-info.toml"
+        destination = "local/dynamic_conf.toml"
       }
 
       env {

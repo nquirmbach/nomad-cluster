@@ -37,11 +37,13 @@ job "server-info-web" {
     service {
       name     = "server-info-svc"
       port     = "http"
-      provider = "nomad"
+      provider = "consul"
       
       tags = [
         "traefik.enable=true",
-        "traefik.http.routers.server-info.rule=Host(`server-info.service.consul`)"
+        "traefik.http.routers.server-info.rule=PathPrefix(`/server-info`)",
+        "traefik.http.routers.server-info.entrypoints=web",
+        "traefik.http.routers.server-info.middlewares=strip-server-info@file"
       ]
       
       check {
