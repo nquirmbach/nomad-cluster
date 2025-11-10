@@ -16,6 +16,7 @@ variable "IMAGE_NAME" {
   description = "Name des Docker Images"
 }
 
+
 job "server-info-web" {
   datacenters = ["dc1"]
   type = "service"
@@ -75,10 +76,6 @@ job "server-info-web" {
         # Dynamische Image-Auswahl: lokal oder aus ACR
         image = "${var.ACR_NAME != "" ? "${var.ACR_NAME}.azurecr.io/" : ""}${var.IMAGE_NAME}:${var.IMAGE_VERSION}"
         ports = ["http"]
-        
-        auth {
-          helper = "acr-env"
-        }
       }
     }
   }
