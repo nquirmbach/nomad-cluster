@@ -36,10 +36,8 @@ consul {
   client_auto_join = true
 
   # Service-Tags für bessere Identifikation
-  tags {
-    server = ["server", "{{ datacenter }}", "v1"]
-    client = ["client", "{{ datacenter }}", "v1"]
-  }
+  server_tags = ["server", "{{ datacenter }}", "v1"]
+  client_tags = ["client", "{{ datacenter }}", "v1"]
   
   # Health-Check-Konfiguration
   checks_use_advertise = true

@@ -130,9 +130,7 @@ write_files:
         client_auto_join = true
         
         # Service-Tags für bessere Identifikation
-        tags {
-          client = ["client", "${datacenter}", "v1"]
-        }
+        tags = ["client", "${datacenter}", "v1"]
       }
     
   # Nomad systemd service
