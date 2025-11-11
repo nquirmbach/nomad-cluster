@@ -87,7 +87,7 @@ nomad-cluster/
 │
 ├── jobs/                       # Nomad Job Definitions
 │   ├── example.nomad          # Example job spec
-│   └── web.nomad              # Web application job
+│   └── server-info.nomad       # Server info web application job
 │
 ├── app/                        # Demo Flask Application
 │   ├── Dockerfile             # Container image

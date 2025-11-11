@@ -17,7 +17,7 @@ on:
 
   push:
     branches: [main]
-    paths: ["jobs/web.nomad", "app/**", ".github/workflows/deploy-app.yml"]
+    paths: ["jobs/server-info.nomad", "app/**", ".github/workflows/deploy-app.yml"]
 
 jobs:
   build:
@@ -169,7 +169,7 @@ jobs:
       - name: Set Job File Path
         run: |
           # Set the job file path (fest definiert)
-          JOB_FILE="jobs/web.nomad"
+          JOB_FILE="jobs/server-info.nomad"
           echo "JOB_FILE=$JOB_FILE" >> $GITHUB_ENV
 
           # Print the image tag that will be used
@@ -188,7 +188,7 @@ jobs:
 
       - name: Verify Deployment
         run: |
-          # Get the job name from the job file (server-info-web is the job name in web.nomad)
+          # Get the job name from the job file (server-info-web is the job name in server-info.nomad)
           JOB_NAME="server-info-web"
           nomad job status $JOB_NAME
 

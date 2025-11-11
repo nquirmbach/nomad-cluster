@@ -31,7 +31,7 @@ tasks:
         sh: date +%Y%m%d%H%M%S
     cmds:
       - cd app && task build IMAGE_VERSION={{.TIMESTAMP}}
-      - nomad job run -var IMAGE_VERSION={{.TIMESTAMP}} jobs/web.nomad.hcl
+      - nomad job run -var IMAGE_VERSION={{.TIMESTAMP}} jobs/server-info.nomad
 
   ssh-server:
     desc: Connect to a Nomad server via SSH

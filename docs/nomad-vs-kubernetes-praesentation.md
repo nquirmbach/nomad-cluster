@@ -161,7 +161,7 @@ nomad status
 
 #### 2. Job deployen (Web-Anwendung)
 
-**Job-Definition:** `web.nomad`
+**Job-Definition:** `server-info.nomad`
 
 ```hcl
 job "web-app" {
@@ -197,7 +197,7 @@ job "web-app" {
 **Deployment:**
 
 ```bash
-nomad job run jobs/web.nomad
+nomad job run jobs/server-info.nomad
 nomad job status web-app
 ```
 
