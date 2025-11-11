@@ -59,11 +59,6 @@ job "dotnet-crud-api" {
 
       artifact {
         source = "${var.ARTIFACT_SOURCE == "local" ? var.ARTIFACT_PATH : "${var.ARTIFACT_PATH}/dotnet-api-${var.API_VERSION}.zip"}"
-        
-        # Skip checksum verification for now
-        options {
-          checksum = "none"
-        }
       }
 
       resources {
