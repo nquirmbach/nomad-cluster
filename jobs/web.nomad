@@ -42,8 +42,9 @@ job "server-info-web" {
       tags = [
         "traefik.enable=true",
         "traefik.http.routers.server-info.rule=PathPrefix(`/server-info`)",
-        "traefik.http.routers.server-info.entrypoints=web",
-        "traefik.http.routers.server-info.middlewares=strip-server-info@file"
+        "traefik.http.routers.server-info.entrypoints=http",
+        "traefik.http.middlewares.strip-server-info.stripprefix.prefixes=/server-info",
+        "traefik.http.routers.server-info.middlewares=strip-server-info"
       ]
       
       check {
