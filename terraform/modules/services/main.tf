@@ -80,19 +80,19 @@ resource "azurerm_key_vault_secret" "consul_encrypt" {
 
 # Azure Storage Account for artifacts
 resource "azurerm_storage_account" "artifacts" {
-  name                     = replace("${var.prefix}storage", "-", "")
-  resource_group_name      = var.resource_group_name
-  location                 = var.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+  name                            = replace("${var.prefix}storage", "-", "")
+  resource_group_name             = var.resource_group_name
+  location                        = var.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
   allow_nested_items_to_be_public = false
-  tags                     = var.tags
+  tags                            = var.tags
 }
 
 # Create artifacts container
 resource "azurerm_storage_container" "artifacts" {
   name                  = "artifacts"
-  storage_account_name  = azurerm_storage_account.artifacts.name
+  storage_account_id    = azurerm_storage_account.artifacts.id
   container_access_type = "private"
 }
 

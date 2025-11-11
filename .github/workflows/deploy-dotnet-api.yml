@@ -163,7 +163,7 @@ jobs:
         run: |
           # Generate SAS token for the artifact
           END_DATE=$(date -u -d "30 minutes" '+%Y-%m-%dT%H:%MZ')
-          SAS_TOKEN=$(az storage container generate-sas --name artifacts --permissions r --expiry $END_DATE --account-name ${{ env.STORAGE_ACCOUNT }} --auth-mode login -o tsv)
+          SAS_TOKEN=$(az storage container generate-sas --name artifacts --permissions r --expiry $END_DATE --account-name ${{ env.STORAGE_ACCOUNT }} --auth-mode login --as-user -o tsv)
           
           # Get the blob URL
           BLOB_URL=$(az storage blob url --container-name artifacts --name dotnet-api-${{ needs.build.outputs.artifact_version }}.zip --account-name ${{ env.STORAGE_ACCOUNT }} -o tsv)
