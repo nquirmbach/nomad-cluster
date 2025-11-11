@@ -1,6 +1,6 @@
 name: Provision Nomad Cluster
 
-run-name: Provision ${{ github.event.inputs.environment || 'dev' }} - ${{ github.event.inputs.action || 'apply' }} | ${{ github.event.head_commit.message || github.event.commits[0].message }}
+run-name: Provision ${{ github.event.inputs.environment || 'dev' }} cluster - ${{ github.event.inputs.action || 'apply' }} | ${{ github.event.head_commit.message || github.event.commits[0].message }}
 
 on:
   workflow_dispatch:
@@ -27,11 +27,7 @@ on:
   push:
     branches: [main]
     paths:
-      [
-        "terraform/**",
-        "ansible/**",
-        ".github/workflows/provision-cluster.yml"
-      ]
+      ["terraform/**", "ansible/**", ".github/workflows/provision-cluster.yml"]
 
 env:
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -223,4 +219,3 @@ jobs:
           echo "- Server 1: \`ssh -p 50001 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
           echo "- Server 2: \`ssh -p 50002 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
           echo "- Server 3: \`ssh -p 50003 azureuser@$LB_IP\`" >> $GITHUB_STEP_SUMMARY
-

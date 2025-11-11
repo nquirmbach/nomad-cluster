@@ -79,13 +79,16 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
 #### Storage Account für Artifacts
 
 - **Type**: Azure Storage Account (Standard LRS)
-- **Container**: `artifacts` (private)
+- **Container**: `artifacts` (public blob access)
 - **Verwendung**:
   - Speicherung von Deployment-Artifacts (z.B. .NET Executables)
-  - Zugriff über SAS-Tokens in Deployment-Pipelines
+  - Öffentlicher Zugriff für Nomad Artifact Downloads
   - RBAC-Integration mit GitHub Actions
 - **Sicherheit**:
-  - Private Access (kein öffentlicher Zugriff)
+  - **HINWEIS**: Öffentlicher Blob-Zugriff nur für Testzwecke!
+  - In Enterprise-Szenarien sollte der Storage Account nur innerhalb des Cluster-Netzwerks zugänglich sein
+  - Private Endpoints oder Service Endpoints verwenden
+  - Zugriff über Managed Identities oder SAS-Tokens mit begrenzter Lebensdauer
   - Verschlüsselung im Ruhezustand (Azure Storage Encryption)
 
 #### Consul (Optional, aber empfohlen)
@@ -116,6 +119,7 @@ Diese vereinfachte Architektur fokussiert sich auf schnelles Setup via GitHub Ac
 - ✅ Log Analytics Workspace (für zentrales Logging)
 - ✅ Azure Bastion Service (für sicheren SSH-Zugriff)
 - ✅ Storage Account für Artifacts (für Executable Deployments)
+  - ⚠️ **Hinweis**: Öffentlicher Blob-Zugriff nur für Testzwecke! In Enterprise-Umgebungen sollten Private/Service Endpoints verwendet werden.
 
 ## Konfigurationsmethodik
 
@@ -443,9 +447,11 @@ Siehe `docs/architecture.md` für vollständige Production-Architektur.
 - Bei Zone-Ausfall: Cluster eventuell nicht verfügbar
 - Quorum erfordert mindestens 2 funktionierende Server
 
-**Public IPs**:
+**Public IPs und Storage**:
 
 - Security Risk (aber durch NSG eingeschränkt)
+- Öffentlicher Storage Account für Artifacts ist ein Sicherheitsrisiko
+- In Enterprise-Umgebungen sollten Private Endpoints oder Service Endpoints verwendet werden
 - Produktiv nicht empfohlen
 - Nur für Testing/Dev akzeptabel
 

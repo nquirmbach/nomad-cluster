@@ -85,7 +85,8 @@ resource "azurerm_storage_account" "artifacts" {
   location                        = var.location
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
-  allow_nested_items_to_be_public = false
+  allow_nested_items_to_be_public = true
+  # Public access is controlled at the container level
   tags                            = var.tags
 }
 
@@ -93,7 +94,7 @@ resource "azurerm_storage_account" "artifacts" {
 resource "azurerm_storage_container" "artifacts" {
   name                  = "artifacts"
   storage_account_id    = azurerm_storage_account.artifacts.id
-  container_access_type = "private"
+  container_access_type = "blob"
 }
 
 # RBAC for GitHub Actions Managed Identity on Storage Account
