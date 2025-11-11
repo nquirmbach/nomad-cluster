@@ -1,0 +1,209 @@
+name: Build and Deploy .NET API to Nomad
+
+run-name: Deploy .NET API to ${{ github.event.inputs.environment || 'dev' }} | ${{ github.event.head_commit.message || (github.event.commits && github.event.commits[0].message) || 'Manual deployment' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (Terraform Workspace)"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+  push:
+    branches: [main]
+    paths: ["jobs/dotnet-api.nomad", "apps/dotnet-api/**", ".github/workflows/deploy-dotnet-api.yml"]
+
+jobs:
+  build:
+    name: Build .NET API
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      artifact_version: ${{ steps.set_version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set Version
+        id: set_version
+        run: |
+          # Calculate version using GitHub run ID and short commit SHA
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          VERSION="${GITHUB_RUN_ID}-${SHORT_SHA}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Using version: ${VERSION}"
+
+      - name: Build .NET API
+        run: |
+          cd apps/dotnet-api
+          dotnet publish -c Release
+
+      - name: Create Artifact
+        run: |
+          mkdir -p artifact
+          cp -r apps/dotnet-api/bin/Release/net8.0/linux-x64/publish/* artifact/
+          chmod +x artifact/dotnet-api
+          cd artifact
+          zip -r ../dotnet-api-${{ steps.set_version.outputs.version }}.zip .
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Set Environment Variables
+        id: env_vars
+        run: |
+          # Dynamically calculate Resource Group and Storage Account names
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PREFIX="nomad-cluster"
+          RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
+          STORAGE_ACCOUNT="nmdclstr${ENV}storage"
+
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT" >> $GITHUB_ENV
+          echo "NOMAD_ENV=$ENV" >> $GITHUB_ENV
+
+          echo "Using environment: $ENV"
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "Storage Account: $STORAGE_ACCOUNT"
+
+      - name: Upload Artifact to Azure Storage
+        run: |
+          # Create container if it doesn't exist
+          az storage container create --name artifacts --account-name ${{ env.STORAGE_ACCOUNT }} --auth-mode login
+
+          # Upload the artifact
+          az storage blob upload --container-name artifacts --name dotnet-api-${{ steps.set_version.outputs.version }}.zip --file dotnet-api-${{ steps.set_version.outputs.version }}.zip --account-name ${{ env.STORAGE_ACCOUNT }} --auth-mode login
+
+          # Generate SAS URL for the artifact
+          ARTIFACT_URL=$(az storage blob url --container-name artifacts --name dotnet-api-${{ steps.set_version.outputs.version }}.zip --account-name ${{ env.STORAGE_ACCOUNT }} --output tsv)
+          echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
+
+  deploy:
+    name: Deploy to Nomad
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    if: always() && needs.build.result == 'success'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Set Environment Variables
+        id: env_vars
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PREFIX="nomad-cluster"
+          RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
+          STORAGE_ACCOUNT="nmdclstr${ENV}storage"
+
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT" >> $GITHUB_ENV
+          echo "NOMAD_ENV=$ENV" >> $GITHUB_ENV
+
+          echo "Using environment: $ENV"
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "Storage Account: $STORAGE_ACCOUNT"
+
+      - name: Setup Nomad CLI
+        run: |
+          wget -q https://releases.hashicorp.com/nomad/1.10.5/nomad_1.10.5_linux_amd64.zip
+          unzip nomad_1.10.5_linux_amd64.zip
+          sudo mv nomad /usr/local/bin/
+          nomad version
+
+      - name: Get Load Balancer IP
+        run: |
+          # Get the Load Balancer IP
+          PREFIX="nomad-cluster"
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LB_NAME="nmdclstr-${ENV}-lb"
+          LB_IP=$(az network public-ip show -g ${{ env.RESOURCE_GROUP }} --name "${LB_NAME}-ip" --query ipAddress -o tsv)
+
+          if [ -z "$LB_IP" ]; then
+            echo "Error: Could not find Load Balancer IP in resource group ${{ env.RESOURCE_GROUP }}"
+            exit 1
+          fi
+
+          echo "Using Load Balancer IP: $LB_IP"
+          echo "NOMAD_ADDR=http://${LB_IP}:4646" >> $GITHUB_ENV
+
+      - name: Get Artifact URL
+        run: |
+          # Generate SAS token for the artifact
+          END_DATE=$(date -u -d "30 minutes" '+%Y-%m-%dT%H:%MZ')
+          SAS_TOKEN=$(az storage container generate-sas --name artifacts --permissions r --expiry $END_DATE --account-name ${{ env.STORAGE_ACCOUNT }} --auth-mode login -o tsv)
+          
+          # Get the blob URL
+          BLOB_URL=$(az storage blob url --container-name artifacts --name dotnet-api-${{ needs.build.outputs.artifact_version }}.zip --account-name ${{ env.STORAGE_ACCOUNT }} -o tsv)
+          
+          # Combine to create the full artifact URL with SAS token
+          ARTIFACT_URL="${BLOB_URL}?${SAS_TOKEN}"
+          echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
+          
+          # Set the artifact path for Nomad
+          ARTIFACT_PATH="https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/artifacts"
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
+
+      - name: Set Job File Path
+        run: |
+          # Set the job file path
+          JOB_FILE="jobs/dotnet-api.nomad"
+          echo "JOB_FILE=$JOB_FILE" >> $GITHUB_ENV
+
+          # Print the version that will be used
+          echo "Using version: ${{ needs.build.outputs.artifact_version }} for deployment"
+
+      - name: Validate Job
+        run: nomad job validate -var="API_VERSION=${{ needs.build.outputs.artifact_version }}" -var="ARTIFACT_SOURCE=remote" -var="ARTIFACT_PATH=${{ env.ARTIFACT_PATH }}" ${{ env.JOB_FILE }}
+
+      - name: Plan Job
+        continue-on-error: true
+        id: plan
+        run: nomad job plan -var="API_VERSION=${{ needs.build.outputs.artifact_version }}" -var="ARTIFACT_SOURCE=remote" -var="ARTIFACT_PATH=${{ env.ARTIFACT_PATH }}" ${{ env.JOB_FILE }}
+
+      - name: Deploy Job
+        run: nomad job run -var="API_VERSION=${{ needs.build.outputs.artifact_version }}" -var="ARTIFACT_SOURCE=remote" -var="ARTIFACT_PATH=${{ env.ARTIFACT_PATH }}" ${{ env.JOB_FILE }}
+
+      - name: Verify Deployment
+        run: |
+          # Get the job name from the job file
+          JOB_NAME="dotnet-crud-api"
+          nomad job status $JOB_NAME
+
+          echo "## .NET API Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "- Job: $JOB_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ env.NOMAD_ENV }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ needs.build.outputs.artifact_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Nomad UI: $NOMAD_ADDR/ui/jobs/$JOB_NAME" >> $GITHUB_STEP_SUMMARY

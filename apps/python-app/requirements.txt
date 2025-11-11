@@ -1,0 +1,6 @@
+flask==2.0.1
+werkzeug==2.0.2
+psutil==5.9.0
+Jinja2==3.0.3
+itsdangerous==2.0.1
+MarkupSafe==2.0.1

@@ -35,7 +35,7 @@ job "server-info-web" {
     }
 
     service {
-      name     = "server-info-svc"
+      name     = "server-info"
       port     = "http"
       provider = "consul"
       

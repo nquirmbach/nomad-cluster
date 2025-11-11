@@ -1,0 +1,56 @@
+version: "3"
+
+vars:
+  IMAGE_NAME: server-info-app
+  CONTAINER_NAME: server-info-container
+  PORT: 8080
+
+tasks:
+  build:
+    desc: Build the Docker image
+    cmds:
+      - echo "Building Docker image {{.IMAGE_NAME}}:{{.IMAGE_VERSION}}..."
+      - docker build -t {{.IMAGE_NAME}}:{{.IMAGE_VERSION}} .
+    vars:
+      IMAGE_VERSION: '{{.IMAGE_VERSION | default "local"}}'
+
+  run:
+    desc: Run the Docker container
+    deps: [build]
+    cmds:
+      - task: build -var "IMAGE_VERSION={{.IMAGE_VERSION}}"
+      - echo "Starting container {{.CONTAINER_NAME}} on port {{.PORT}}..."
+      - docker run --rm -d -p {{.PORT}}:{{.PORT}} --name {{.CONTAINER_NAME}} {{.IMAGE_NAME}}
+      - echo "Container started. Access the app at http://localhost:{{.PORT}}"
+
+  stop:
+    desc: Stop the running container
+    cmds:
+      - echo "Stopping container {{.CONTAINER_NAME}}..."
+      - docker stop {{.CONTAINER_NAME}} || true
+
+  logs:
+    desc: View container logs
+    cmds:
+      - docker logs -f {{.CONTAINER_NAME}}
+
+  clean:
+    desc: Remove Docker image and container
+    cmds:
+      - echo "Cleaning up Docker resources..."
+      - task: stop
+      - docker rmi {{.IMAGE_NAME}} || true
+      - echo "Cleanup completed"
+
+  dev:
+    desc: Run the application locally for development
+    cmds:
+      - echo "Installing dependencies..."
+      - pip install -r requirements.txt
+      - echo "Starting development server on port {{.PORT}}..."
+      - python app.py
+
+  default:
+    desc: Display available tasks
+    cmds:
+      - task --list
