@@ -1,0 +1,106 @@
+name: Deploy Traefik to Nomad Cluster
+
+run-name: Deploy Traefik to ${{ github.event.inputs.environment || 'dev' }} | ${{ github.event.head_commit.message || (github.event.commits && github.event.commits[0].message) || 'Manual deployment' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (Terraform Workspace)"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+  push:
+    branches: [main]
+    paths: ["jobs/traefik.nomad", ".github/workflows/deploy-traefik.yml"]
+
+# Environment variables for Azure authentication
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  deploy_traefik:
+    name: Deploy Traefik
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          allow-no-subscriptions: false
+
+      - name: Set Environment Variables
+        id: env_vars
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PREFIX="nomad-cluster"
+          RESOURCE_GROUP="rg-${PREFIX}-${ENV}"
+          
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "NOMAD_ENV=$ENV" >> $GITHUB_ENV
+          
+          echo "Using environment: $ENV"
+          echo "Resource Group: $RESOURCE_GROUP"
+
+      - name: Get Load Balancer IP
+        run: |
+          # Get the Load Balancer IP
+          PREFIX="nomad-cluster"
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LB_NAME="nmdclstr-${ENV}-lb"
+          LB_IP=$(az network public-ip show -g "$RESOURCE_GROUP" --name "${LB_NAME}-ip" --query ipAddress -o tsv)
+
+          if [ -z "$LB_IP" ]; then
+            echo "Error: Could not find Load Balancer IP in resource group $RESOURCE_GROUP"
+            exit 1
+          fi
+
+          echo "Using Load Balancer IP: $LB_IP"
+          echo "LB_IP=$LB_IP" >> $GITHUB_ENV
+          echo "NOMAD_ADDR=http://${LB_IP}:4646" >> $GITHUB_ENV
+
+      - name: Install Nomad CLI
+        run: |
+          wget -q https://releases.hashicorp.com/nomad/1.7.5/nomad_1.7.5_linux_amd64.zip
+          unzip nomad_1.7.5_linux_amd64.zip
+          sudo mv nomad /usr/local/bin/
+          nomad version
+
+      - name: Validate Traefik Job
+        run: |
+          nomad job validate jobs/traefik.nomad
+
+      - name: Deploy Traefik
+        run: |
+          echo "Deploying Traefik to Nomad cluster..."
+          nomad job run jobs/traefik.nomad
+
+      - name: Verify Deployment
+        run: |
+          # Get the job status
+          nomad job status traefik
+          
+          echo "## Traefik Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "- Job: traefik" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: $NOMAD_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- Traefik dashboard: http://${LB_IP}:8081/dashboard/" >> $GITHUB_STEP_SUMMARY
+          echo "- Applications will be available at: http://${LB_IP}:8080" >> $GITHUB_STEP_SUMMARY
+          echo "- Nomad UI: $NOMAD_ADDR/ui/jobs/traefik" >> $GITHUB_STEP_SUMMARY
