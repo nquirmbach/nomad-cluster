@@ -1,4 +1,5 @@
 job "traefik" {
+  region      = "global"
   datacenters = ["dc1"]
   type        = "service"
 
@@ -7,17 +8,16 @@ job "traefik" {
 
     network {
       port "http" {
-        static = 9080
+        static = 8080
       }
-      port "admin" {
-        static = 9081
+
+      port "api" {
+        static = 8081
       }
     }
 
     service {
       name = "traefik"
-      port = "http"
-      tags = ["traefik.enable=true"]
 
       check {
         name     = "alive"
@@ -28,85 +28,46 @@ job "traefik" {
       }
     }
 
-    # Service für das Traefik Dashboard
-    service {
-      name = "traefik-dashboard"
-      port = "admin"
-      tags = ["traefik.enable=true"]
-
-      check {
-        name     = "dashboard-alive"
-        type     = "tcp"
-        port     = "admin"
-        interval = "10s"
-        timeout  = "2s"
-      }
-    }
-
     task "traefik" {
       driver = "docker"
 
       config {
-        image = "traefik:v2.10"
-        ports = ["http", "admin"]
+        image        = "traefik:v2.2"
+        network_mode = "host"
 
-        # Direkte Konfiguration über Kommandozeilenargumente statt Konfigurationsdateien
-        args = [
-          "--entrypoints.web.address=:9080",
-          "--entrypoints.dashboard.address=:9081",
-          "--api.dashboard=true",
-          "--api.insecure=true",
-          "--providers.file.filename=/local/dynamic_conf.toml",
-          "--log.level=INFO"
+        volumes = [
+          "local/traefik.toml:/etc/traefik/traefik.toml",
         ]
       }
 
-      # Kein leeres Template mehr notwendig
-
-      # Zusätzliche Konfiguration für Traefik (Middlewares und Services)
       template {
         data = <<EOF
-# Dynamische Konfiguration für Traefik
+[entryPoints]
+    [entryPoints.http]
+    address = ":8080"
+    [entryPoints.traefik]
+    address = ":8081"
 
-# Definiere den Server-Info Service
-[http.services]
-  [http.services.server-info-svc]
-    [http.services.server-info-svc.loadBalancer]
-      [[http.services.server-info-svc.loadBalancer.servers]]
-        url = "http://127.0.0.1:8080"
+[api]
+    dashboard = true
+    insecure  = true
 
-# Middleware zum Entfernen des Pfad-Präfixes
-[http.middlewares]
-  [http.middlewares.strip-server-info.stripPrefix]
-    prefixes = ["/server-info"]
+# Enable Consul Catalog configuration backend.
+[providers.consulCatalog]
+    prefix           = "traefik"
+    exposedByDefault = false
 
-# Router für die Server-Info App
-[http.routers]
-  [http.routers.server-info]
-    rule = "PathPrefix(`/server-info`)"
-    service = "server-info-svc"
-    entryPoints = ["web"]
-    middlewares = ["strip-server-info"]
-    
-  # Catch-All Router für die Startseite
-  [http.routers.catchall]
-    rule = "PathPrefix(`/`)"
-    service = "server-info-svc"
-    entryPoints = ["web"]
-    priority = 1  # Niedrige Priorität, damit spezifischere Routen Vorrang haben
+    [providers.consulCatalog.endpoint]
+      address = "127.0.0.1:8500"
+      scheme  = "http"
 EOF
 
-        destination = "local/dynamic_conf.toml"
-      }
-
-      env {
-        # Debug-Modus aktivieren
-        TRAEFIK_LOG_LEVEL = "DEBUG"
+        destination = "local/traefik.toml"
       }
 
       resources {
-        cpu    = 300
-        memory = 256
+        cpu    = 100
+        memory = 128
       }
     }
   }

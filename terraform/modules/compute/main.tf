@@ -128,7 +128,7 @@ resource "azurerm_lb_probe" "traefik_http" {
   name            = "traefik-http-probe"
   loadbalancer_id = azurerm_lb.nomad.id
   protocol        = "Tcp"
-  port            = 9080
+  port            = 8080
 }
 
 # Load Balancer Rule für Traefik HTTP
@@ -137,7 +137,7 @@ resource "azurerm_lb_rule" "traefik_http" {
   loadbalancer_id                = azurerm_lb.nomad.id
   protocol                       = "Tcp"
   frontend_port                  = 80
-  backend_port                   = 9080
+  backend_port                   = 8080
   frontend_ip_configuration_name = "PublicIPAddress"
   backend_address_pool_ids       = [azurerm_lb_backend_address_pool.nomad_servers.id]
   probe_id                       = azurerm_lb_probe.traefik_http.id
@@ -148,7 +148,7 @@ resource "azurerm_lb_probe" "traefik_dashboard" {
   name            = "traefik-dashboard-probe"
   loadbalancer_id = azurerm_lb.nomad.id
   protocol        = "Tcp"
-  port            = 9081
+  port            = 8081
 }
 
 # Load Balancer Rule für Traefik Dashboard
@@ -157,7 +157,7 @@ resource "azurerm_lb_rule" "traefik_dashboard" {
   loadbalancer_id                = azurerm_lb.nomad.id
   protocol                       = "Tcp"
   frontend_port                  = 8081
-  backend_port                   = 9081
+  backend_port                   = 8081
   frontend_ip_configuration_name = "PublicIPAddress"
   backend_address_pool_ids       = [azurerm_lb_backend_address_pool.nomad_servers.id]
   probe_id                       = azurerm_lb_probe.traefik_dashboard.id
@@ -249,7 +249,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
 
   # Cloud-Init für Client-Konfiguration mit Template-Datei
   custom_data = base64encode(templatefile("${path.module}/templates/nomad-client-cloud-init.yaml.tftpl", {
-    server_ips         = [
+    server_ips = [
       for s in azurerm_linux_virtual_machine.nomad_server : s.private_ip_address
     ],
     datacenter         = var.datacenter,
@@ -260,7 +260,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "nomad_client" {
     acr_admin_username = var.acr_admin_username,
     acr_admin_password = var.acr_admin_password
   }))
-  
+
 }
 
 # RBAC-Rolle für ACR Pull (Managed Identity)

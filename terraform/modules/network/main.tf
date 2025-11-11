@@ -125,7 +125,7 @@ resource "azurerm_network_security_group" "nomad_server" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "9080"
+    destination_port_range     = "8080"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -138,7 +138,7 @@ resource "azurerm_network_security_group" "nomad_server" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "9081"
+    destination_port_range     = "8081"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -223,7 +223,7 @@ resource "azurerm_network_security_group" "nomad_client" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "9080"
+    destination_port_range     = "8080"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -236,7 +236,7 @@ resource "azurerm_network_security_group" "nomad_client" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "9081"
+    destination_port_range     = "8081"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -257,9 +257,9 @@ resource "azurerm_bastion_host" "nomad" {
   name                = "${var.prefix}-bastion"
   location            = var.location
   resource_group_name = var.resource_group_name
-  sku                 = "Standard"  # Standard SKU erforderlich für CLI-Zugriff
+  sku                 = "Standard" # Standard SKU erforderlich für CLI-Zugriff
   tags                = var.tags
-  
+
   # Native Client Support aktivieren (erforderlich für az CLI SSH)
   copy_paste_enabled     = true
   file_copy_enabled      = true
