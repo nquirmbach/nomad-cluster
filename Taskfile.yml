@@ -24,14 +24,23 @@ tasks:
     cmds:
       - nomad node status
 
-  deploy-web:
-    desc: Deploy a new version of the web app
+  deploy-server-info:
+    desc: Deploy a new version of server-info
     vars:
       TIMESTAMP:
         sh: date +%Y%m%d%H%M%S
     cmds:
-      - cd app && task build IMAGE_VERSION={{.TIMESTAMP}}
+      - cd apps/server-info && task build IMAGE_VERSION={{.TIMESTAMP}}
       - nomad job run -var IMAGE_VERSION={{.TIMESTAMP}} jobs/server-info.nomad
+
+  deploy-dotnet-api:
+    desc: Deploy a new version of dotnet-api
+    vars:
+      TIMESTAMP:
+        sh: date +%Y%m%d%H%M%S
+    cmds:
+      - cd apps/dotnet-api && task build IMAGE_VERSION={{.TIMESTAMP}}
+      - nomad job run -var IMAGE_VERSION={{.TIMESTAMP}} jobs/dotnet-api.nomad
 
   ssh-server:
     desc: Connect to a Nomad server via SSH

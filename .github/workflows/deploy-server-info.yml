@@ -17,7 +17,12 @@ on:
 
   push:
     branches: [main]
-    paths: ["jobs/server-info.nomad", "app/**", ".github/workflows/deploy-app.yml"]
+    paths:
+      [
+        "jobs/server-info.nomad",
+        "apps/server-info/**",
+        ".github/workflows/deploy-app.yml",
+      ]
 
 jobs:
   build:
@@ -93,7 +98,7 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v5
         with:
-          context: app
+          context: apps/server-info
           push: true
           tags: ${{ env.ACR_LOGIN_SERVER }}/server-info:${{ steps.set_image_tag.outputs.image_tag }}
           cache-from: type=gha

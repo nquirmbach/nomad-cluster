@@ -29,7 +29,7 @@ job "dotnet-crud-api" {
 
     network {
       port "http" {
-        to = 5000
+        to = 8080
       }
     }
 
@@ -51,7 +51,7 @@ job "dotnet-crud-api" {
         path     = "/health"
         interval = "10s"
         timeout  = "2s"
-        address_mode = "host"
+        port     = "http"
       }
     }
 
