@@ -202,7 +202,7 @@ resource "azurerm_network_security_group" "nomad_client" {
     destination_address_prefix = "*"
   }
 
-  # Dynamic Ports für Nomad Allocations (30000-32000)
+  # Dynamic Ports für Nomad Allocations (20000-32000)
   security_rule {
     name                       = "NomadDynamicPorts"
     priority                   = 140
@@ -210,7 +210,7 @@ resource "azurerm_network_security_group" "nomad_client" {
     access                     = "Allow"
     protocol                   = "*"
     source_port_range          = "*"
-    destination_port_range     = "30000-32000"
+    destination_port_range     = "20000-32000"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }

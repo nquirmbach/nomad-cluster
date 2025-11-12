@@ -6,6 +6,8 @@ using Microsoft.OpenApi.Models;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Nomad .NET CRUD API", Version = "v1" });
+});
+
+// Configure JSON serialization
+builder.Services.ConfigureHttpJsonOptions(options => {
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
 });
 
 // Add in-memory data store as a singleton
@@ -80,7 +87,7 @@ app.MapGet("/info", () => Results.Ok(new
 }));
 
 // Run the app
-var port = int.Parse(System.Environment.GetEnvironmentVariable("PORT") ?? "5000");
+var port = int.Parse(System.Environment.GetEnvironmentVariable("PORT") ?? "8080");
 app.Run($"http://0.0.0.0:{port}");
 
 // Data model
@@ -90,6 +97,14 @@ public class Item
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsComplete { get; set; }
+}
+
+// JSON serialization context
+[JsonSerializable(typeof(Item))]
+[JsonSerializable(typeof(IEnumerable<Item>))]
+[JsonSerializable(typeof(object))]
+public partial class AppJsonSerializerContext : JsonSerializerContext
+{   
 }
 
 // In-memory repository

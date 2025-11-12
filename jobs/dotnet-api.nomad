@@ -28,9 +28,7 @@ job "dotnet-crud-api" {
     count = 1
 
     network {
-      port "http" {
-        to = 8080
-      }
+      port "http" {}
     }
 
     service {
@@ -47,6 +45,7 @@ job "dotnet-crud-api" {
       ]
       
       check {
+        name = "dotnet-api-probe"
         type     = "http"
         path     = "/health"
         interval = "10s"
@@ -70,6 +69,8 @@ job "dotnet-crud-api" {
       env {
         APP_ENV = "nomad"
         PORT = "${NOMAD_PORT_http}"
+        ASPNETCORE_URLS = "http://0.0.0.0:${NOMAD_PORT_http}"
+        ASPNETCORE_ENVIRONMENT = "Production"
         HOSTNAME = "${attr.unique.hostname}"
         NODE_IP = "${attr.unique.network.ip-address}"
         NOMAD_ALLOC_ID = "${NOMAD_ALLOC_ID}"
@@ -79,16 +80,6 @@ job "dotnet-crud-api" {
       
       config {
         command = "dotnet-api"
-      }
-
-      template {
-        data = <<EOH
-#!/bin/bash
-export ASPNETCORE_URLS="http://0.0.0.0:${NOMAD_PORT_http}"
-export ASPNETCORE_ENVIRONMENT="Production"
-EOH
-        destination = "local/env.sh"
-        env = true
       }
     }
   }

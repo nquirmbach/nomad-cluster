@@ -48,10 +48,12 @@ job "server-info-web" {
       ]
       
       check {
+        name     = "server-info-probe"
         type     = "http"
         path     = "/"
         interval = "10s"
         timeout  = "2s"
+        port     = "http"
       }
     }
 
