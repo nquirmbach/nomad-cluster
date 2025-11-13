@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +18,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Nomad .NET CRUD API", Version = "v1" });
 });
+builder.Services.AddHealthChecks();
 
 // Configure JSON serialization
 builder.Services.ConfigureHttpJsonOptions(options => {
@@ -74,7 +76,7 @@ app.MapDelete("/api/items/{id}", (int id, ItemRepository repo) =>
 });
 
 // Add a health check endpoint
-app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+app.MapHealthChecks("/health");
 
 // Add system info endpoint
 app.MapGet("/info", () => Results.Ok(new
